@@ -1,0 +1,45 @@
+name: Electron Release
+
+on:
+  push:
+    tags:
+      - 'v*'   # dispara ao criar tag: v1.0.0, v1.1.0, etc.
+
+jobs:
+  release:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [windows-latest]   # adicione macos-latest ou ubuntu-latest se precisar
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      # ── Build Next.js standalone ──────────────────────────────────────────
+      - name: Install Next.js deps
+        run: npm ci
+
+      - name: Build Next.js
+        run: npm run build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+
+      # ── Build e publica o instalador Electron ─────────────────────────────
+      - name: Install Electron deps
+        working-directory: electron
+        run: npm ci
+
+      - name: Build & Publish Electron app
+        working-directory: electron
+        run: npm run build:win
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
