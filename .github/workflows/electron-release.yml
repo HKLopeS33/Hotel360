@@ -40,6 +40,9 @@ jobs:
         working-directory: electron
         run: npm install
 
+      # build:win já roda com "--publish always", então o instalador
+      # (.exe) e o feed de atualização (latest.yml) são publicados
+      # diretamente na release do GitHub correspondente à tag.
       - name: Build & Publish Electron app
         working-directory: electron
         run: npm run build:win

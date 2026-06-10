@@ -11,6 +11,7 @@ import { Separator } from '@/components/ui/separator'
 import { User, Lock, Save, Eye, EyeOff } from 'lucide-react'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
+import { AppUpdateCard } from '@/components/app-update-card'
 
 interface PerfilPageProps {
   searchParams: Promise<{ [key: string]: string | undefined }>
@@ -140,6 +141,9 @@ export default function PerfilPage() {
         <p className="font-medium mb-1">💡 Dica de Segurança</p>
         <p>Use uma senha com letras maiúsculas, minúsculas, números e símbolos. Ex: <code className="bg-amber-100 px-1 rounded">Hotel@2024</code></p>
       </div>
+
+      {/* Versão do app desktop e atualizações automáticas (somente no Electron) */}
+      <AppUpdateCard />
     </div>
   )
 }

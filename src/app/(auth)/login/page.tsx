@@ -2,12 +2,13 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Hotel, Loader2 } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 export default function LoginPage() {
@@ -49,19 +50,25 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4">
-      <div className="w-full max-w-md">
-        <div className="flex items-center justify-center gap-3 mb-8">
-          <div className="p-2 bg-blue-600 rounded-xl">
-            <Hotel className="h-8 w-8 text-white" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold text-white">Hotel360</h1>
-            <p className="text-slate-400 text-sm">Sistema de Gestão Hoteleira</p>
+    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden bg-slate-900">
+      {/* Wallpaper de fundo */}
+      <Image
+        src="/wallpapers/desktop-1920x1080.jpg"
+        alt=""
+        fill
+        priority
+        className="object-cover opacity-90"
+      />
+      <div className="absolute inset-0 bg-gradient-to-br from-slate-900/70 via-slate-900/40 to-blue-900/40" />
+
+      <div className="w-full max-w-md relative z-10">
+        <div className="flex items-center justify-center mb-8">
+          <div className="relative h-16 w-56 bg-white rounded-xl px-4 py-2 shadow-lg">
+            <Image src="/logo.png" alt="Hotel360" fill className="object-contain p-1" priority />
           </div>
         </div>
 
-        <Card className="border-slate-700 bg-slate-800/50 backdrop-blur">
+        <Card className="border-slate-700 bg-slate-800/60 backdrop-blur">
           <CardHeader>
             <CardTitle className="text-white">Entrar na plataforma</CardTitle>
             <CardDescription className="text-slate-400">

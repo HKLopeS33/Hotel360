@@ -1,11 +1,12 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { Profile } from '@/types/database'
 import {
-  Hotel, LayoutDashboard, BedDouble, Users, CalendarDays,
+  LayoutDashboard, BedDouble, Users, CalendarDays,
   LogIn, LogOut, Sparkles, Wrench, DollarSign, Building2,
   ShieldCheck, ChevronLeft, ChevronRight,
 } from 'lucide-react'
@@ -79,8 +80,8 @@ export function Sidebar({ profile }: SidebarProps) {
         'flex items-center gap-3 p-4 border-b border-slate-700',
         collapsed && 'justify-center'
       )}>
-        <div className="p-1.5 bg-blue-600 rounded-lg shrink-0">
-          <Hotel className="h-5 w-5 text-white" />
+        <div className="rounded-lg shrink-0 overflow-hidden h-8 w-8 relative">
+          <Image src="/icons/icon-64.png" alt="Hotel360" fill sizes="32px" className="object-contain" />
         </div>
         {!collapsed && (
           <div className="overflow-hidden">
