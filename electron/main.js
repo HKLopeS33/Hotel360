@@ -97,7 +97,7 @@ function createWindow() {
     },
   })
 
-  mainWindow.loadURL(`http://127.0.0.1:${PORT}`)
+  mainWindow.loadFile(path.join(__dirname, 'loading.html'))
   mainWindow.on('closed', () => { mainWindow = null })
 }
 
@@ -197,8 +197,14 @@ ipcMain.handle('app:quit-and-install', () => {
 // (caso contrário o app já chamou app.quit() acima e não deve fazer nada).
 if (gotSingleInstanceLock) {
   app.whenReady().then(async () => {
+    // Mostra a janela com uma tela de carregamento imediatamente, em vez de
+    // esperar o servidor Next.js subir — evita a sensação de "travado" no
+    // início.
+    createWindow()
+
     try {
       await startNextServer()
+      mainWindow?.loadURL(`http://127.0.0.1:${PORT}`)
     } catch (err) {
       log.error('Falha ao iniciar servidor Next.js:', err)
       dialog.showErrorBox(
@@ -206,8 +212,6 @@ if (gotSingleInstanceLock) {
         `Não foi possível iniciar o servidor da aplicação.\n\n${err?.message ?? err}`
       )
     }
-
-    createWindow()
 
     if (app.isPackaged) {
       setupAutoUpdater()

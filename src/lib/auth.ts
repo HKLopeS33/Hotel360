@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import { headers } from 'next/headers'
 import { Profile } from '@/types/database'
 
 export async function getSession() {
@@ -10,13 +11,22 @@ export async function getSession() {
 
 export async function getProfile(): Promise<Profile | null> {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
+
+  // O proxy já validou o usuário e repassou o id via header — evita uma
+  // segunda chamada de rede a getUser() em toda navegação autenticada.
+  const headersList = await headers()
+  let userId = headersList.get('x-user-id')
+
+  if (!userId) {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return null
+    userId = user.id
+  }
 
   const { data } = await supabase
     .from('profiles')
     .select('*, hotel:hotels(*)')
-    .eq('id', user.id)
+    .eq('id', userId)
     .single()
 
   return data as Profile | null

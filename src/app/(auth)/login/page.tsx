@@ -45,8 +45,6 @@ export default function LoginPage() {
 
     const role = (profile?.role as string) ?? 'recepcionista'
     router.push(DEFAULT_ROUTE[role] ?? '/quartos')
-    router.refresh()
-    setLoading(false)
   }
 
   return (

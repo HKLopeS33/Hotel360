@@ -36,6 +36,15 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL('/dashboard', request.url))
   }
 
+  // Repassa o id do usuário já validado para os Server Components via header,
+  // evitando uma segunda chamada de rede a getUser() em getProfile().
+  if (user) {
+    request.headers.set('x-user-id', user.id)
+    const response = NextResponse.next({ request })
+    supabaseResponse.cookies.getAll().forEach((cookie) => response.cookies.set(cookie))
+    return response
+  }
+
   return supabaseResponse
 }
 
