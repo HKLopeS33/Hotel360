@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -10,6 +11,7 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { FOOTER_LINKS, CONTACT_EMAIL, CONTACT_PHONE_DISPLAY, CONTACT_PHONE_TEL } from '@/lib/footer-links'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -107,9 +109,30 @@ export default function LoginPage() {
           </CardContent>
         </Card>
 
-        <p className="text-center text-slate-500 text-sm mt-6">
-          © 2024 Hotel360. Todos os direitos reservados.
-        </p>
+        <div className="mt-6 flex flex-col items-center gap-2">
+          <nav className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1">
+            {FOOTER_LINKS.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className="text-xs text-slate-400 hover:text-white transition-colors"
+              >
+                {link.label}
+              </Link>
+            ))}
+          </nav>
+          <div className="flex flex-wrap items-center justify-center gap-x-4 text-xs text-slate-500">
+            <a href={`mailto:${CONTACT_EMAIL}`} className="hover:text-slate-300 transition-colors">
+              {CONTACT_EMAIL}
+            </a>
+            <a href={`tel:${CONTACT_PHONE_TEL}`} className="hover:text-slate-300 transition-colors">
+              {CONTACT_PHONE_DISPLAY}
+            </a>
+          </div>
+          <p className="text-center text-slate-500 text-xs">
+            © 2024 Hotel360. Todos os direitos reservados.
+          </p>
+        </div>
       </div>
     </div>
   )

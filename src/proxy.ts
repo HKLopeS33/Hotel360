@@ -1,6 +1,14 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
+const PUBLIC_PATHS = [
+  '/',
+  '/politica-de-privacidade',
+  '/termos-de-uso',
+  '/trabalhe-conosco',
+  '/suporte',
+]
+
 export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
 
@@ -26,7 +34,7 @@ export async function proxy(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
 
   const isAuthPage = request.nextUrl.pathname.startsWith('/login')
-  const isPublic = isAuthPage || request.nextUrl.pathname === '/'
+  const isPublic = isAuthPage || PUBLIC_PATHS.includes(request.nextUrl.pathname)
 
   if (!user && !isPublic) {
     return NextResponse.redirect(new URL('/login', request.url))
