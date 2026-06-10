@@ -47,17 +47,21 @@ function startNextServer() {
         PORT: String(PORT),
         HOSTNAME: '127.0.0.1',
         NODE_ENV: 'production',
+        // Sem isso, process.execPath (o binário do Electron) tenta abrir
+        // server.js como um app Electron em vez de executá-lo como script
+        // Node — o servidor Next nunca sobe e a janela fica em branco.
+        ELECTRON_RUN_AS_NODE: '1',
       },
       stdio: 'pipe',
     })
 
     nextServer.stdout.on('data', (data) => {
       const msg = data.toString()
-      console.log('[Next]', msg)
+      log.info('[Next]', msg.trim())
       if (msg.includes('Ready') || msg.includes('started server')) resolve()
     })
 
-    nextServer.stderr.on('data', (data) => console.error('[Next ERR]', data.toString()))
+    nextServer.stderr.on('data', (data) => log.error('[Next ERR]', data.toString().trim()))
     nextServer.on('error', reject)
 
     // fallback: aguarda até 10s para o servidor responder
@@ -196,7 +200,11 @@ if (gotSingleInstanceLock) {
     try {
       await startNextServer()
     } catch (err) {
-      console.error('Falha ao iniciar servidor Next.js:', err)
+      log.error('Falha ao iniciar servidor Next.js:', err)
+      dialog.showErrorBox(
+        'Erro ao iniciar o Hotel360',
+        `Não foi possível iniciar o servidor da aplicação.\n\n${err?.message ?? err}`
+      )
     }
 
     createWindow()
