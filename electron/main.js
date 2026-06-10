@@ -9,6 +9,24 @@ let mainWindow = null
 let nextServer = null
 const PORT = 3000
 
+// ─── Garante uma única instância do app ───────────────────────────────────────
+// Sem isso, cada novo lançamento (ex.: atalho duplicado, auto-start, ou o
+// próprio instalador reabrindo o app) cria uma nova instância, que por sua
+// vez tenta iniciar outro servidor Next.js na mesma porta e abrir outra
+// janela — gerando o efeito de "múltiplas janelas/instaladores abrindo".
+const gotSingleInstanceLock = app.requestSingleInstanceLock()
+
+if (!gotSingleInstanceLock) {
+  app.quit()
+} else {
+  app.on('second-instance', () => {
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore()
+      mainWindow.focus()
+    }
+  })
+}
+
 // ─── Logs do auto-updater (gravados em %APPDATA%/Hotel360/logs) ──────────────
 log.transports.file.level = 'info'
 autoUpdater.logger = log
@@ -171,25 +189,29 @@ ipcMain.handle('app:quit-and-install', () => {
 })
 
 // ─── Ciclo de vida ────────────────────────────────────────────────────────────
-app.whenReady().then(async () => {
-  try {
-    await startNextServer()
-  } catch (err) {
-    console.error('Falha ao iniciar servidor Next.js:', err)
-  }
+// Só registra os handlers de ciclo de vida se esta instância obteve o lock
+// (caso contrário o app já chamou app.quit() acima e não deve fazer nada).
+if (gotSingleInstanceLock) {
+  app.whenReady().then(async () => {
+    try {
+      await startNextServer()
+    } catch (err) {
+      console.error('Falha ao iniciar servidor Next.js:', err)
+    }
 
-  createWindow()
+    createWindow()
 
-  if (app.isPackaged) {
-    setupAutoUpdater()
-  }
-})
+    if (app.isPackaged) {
+      setupAutoUpdater()
+    }
+  })
 
-app.on('window-all-closed', () => {
-  if (nextServer) nextServer.kill()
-  if (process.platform !== 'darwin') app.quit()
-})
+  app.on('window-all-closed', () => {
+    if (nextServer) nextServer.kill()
+    if (process.platform !== 'darwin') app.quit()
+  })
 
-app.on('activate', () => {
-  if (mainWindow === null) createWindow()
-})
+  app.on('activate', () => {
+    if (mainWindow === null) createWindow()
+  })
+}
