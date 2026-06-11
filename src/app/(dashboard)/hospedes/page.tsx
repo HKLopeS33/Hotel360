@@ -12,5 +12,5 @@ export default async function HospedesPage() {
     .eq('hotel_id', profile.hotel_id!)
     .order('nome')
 
-  return <GuestsClient guests={guests ?? []} hotelId={profile.hotel_id!} />
+  return <GuestsClient guests={guests ?? []} hotelId={profile.hotel_id!} betaFeatures={profile.hotel?.beta_tester ?? false} />
 }

@@ -7,6 +7,8 @@ const PUBLIC_PATHS = [
   '/termos-de-uso',
   '/trabalhe-conosco',
   '/suporte',
+  '/api/webhooks/mercadopago',
+  '/api/mercadopago/process-payment',
 ]
 
 export async function proxy(request: NextRequest) {
@@ -34,7 +36,9 @@ export async function proxy(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
 
   const isAuthPage = request.nextUrl.pathname.startsWith('/login')
-  const isPublic = isAuthPage || PUBLIC_PATHS.includes(request.nextUrl.pathname)
+  const isPublic = isAuthPage
+    || PUBLIC_PATHS.includes(request.nextUrl.pathname)
+    || request.nextUrl.pathname.startsWith('/reservar/')
 
   if (!user && !isPublic) {
     return NextResponse.redirect(new URL('/login', request.url))

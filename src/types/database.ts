@@ -11,6 +11,8 @@ export type MaintenanceStatus = 'aberto' | 'em_andamento' | 'concluido'
 export type MaintenancePriority = 'baixa' | 'media' | 'alta' | 'urgente'
 export type PaymentMethod = 'dinheiro' | 'cartao_credito' | 'cartao_debito' | 'pix' | 'transferencia'
 export type PaymentStatus = 'pendente' | 'pago' | 'cancelado' | 'estornado'
+export type OnlineReservationStatus = 'pendente' | 'aprovada' | 'recusada'
+export type OnlinePaymentStatus = 'pendente' | 'pago' | 'reembolsado' | 'falhou'
 
 export interface Plan {
   id: string
@@ -35,6 +37,19 @@ export interface Hotel {
   status: HotelStatus
   data_vencimento: string
   created_at: string
+  online_valor_diaria?: number | null
+  online_valor_extra_pet?: number
+  online_valor_extra_cafe?: number
+  online_valor_extra_garagem?: number
+  mp_access_token?: string | null
+  mp_public_key?: string | null
+  online_taxa_cancelamento_pct?: number
+  politica_agendamento?: string | null
+  politica_pagamento?: string | null
+  politica_cancelamento?: string | null
+  valor_hora_inicial?: number
+  valor_hora_adicional?: number
+  beta_tester?: boolean
   plan?: Plan
 }
 
@@ -77,6 +92,9 @@ export interface Guest {
   estado?: string
   nacionalidade?: string
   observacoes?: string
+  tem_veiculo: boolean
+  placa_veiculo?: string | null
+  documento_url?: string | null
   created_at: string
 }
 
@@ -93,9 +111,44 @@ export interface Reservation {
   valor_total: number
   status: ReservationStatus
   observacoes?: string
+  tem_veiculo: boolean
+  quantidade_veiculos?: number | null
+  tem_pet: boolean
+  quantidade_pets?: number | null
+  tem_cafe: boolean
+  tipo_reserva: 'diaria' | 'hora'
+  quantidade_horas?: number | null
+  checkout_hora_prevista?: string | null
   created_at: string
   room?: Room
   guest?: Guest
+}
+
+export interface OnlineReservation {
+  id: string
+  hotel_id: string
+  nome: string
+  cpf?: string | null
+  rg?: string | null
+  telefone: string
+  email?: string | null
+  quantidade_pessoas: number
+  tem_veiculo: boolean
+  quantidade_veiculos?: number | null
+  tem_pet: boolean
+  tem_cafe: boolean
+  tem_garagem: boolean
+  checkin_previsto: string
+  checkout_previsto: string
+  horario_chegada_previsto?: string | null
+  observacoes?: string | null
+  status: OnlineReservationStatus
+  valor_total?: number | null
+  aceite_politicas: boolean
+  payment_status: OnlinePaymentStatus
+  forma_pagamento?: string | null
+  mp_payment_id?: string | null
+  created_at: string
 }
 
 export interface Stay {
@@ -157,6 +210,7 @@ export interface Database {
       rooms: { Row: Room; Insert: Omit<Room, 'id' | 'created_at'>; Update: Partial<Omit<Room, 'id' | 'created_at'>> }
       guests: { Row: Guest; Insert: Omit<Guest, 'id' | 'created_at'>; Update: Partial<Omit<Guest, 'id' | 'created_at'>> }
       reservations: { Row: Reservation; Insert: Omit<Reservation, 'id' | 'created_at'>; Update: Partial<Omit<Reservation, 'id' | 'created_at'>> }
+      online_reservations: { Row: OnlineReservation; Insert: Omit<OnlineReservation, 'id' | 'created_at'>; Update: Partial<Omit<OnlineReservation, 'id' | 'created_at'>> }
       stays: { Row: Stay; Insert: Omit<Stay, 'id' | 'created_at'>; Update: Partial<Omit<Stay, 'id' | 'created_at'>> }
       payments: { Row: Payment; Insert: Omit<Payment, 'id' | 'created_at'>; Update: Partial<Omit<Payment, 'id' | 'created_at'>> }
       cleaning_tasks: { Row: CleaningTask; Insert: Omit<CleaningTask, 'id' | 'created_at' | 'updated_at'>; Update: Partial<Omit<CleaningTask, 'id' | 'created_at'>> }

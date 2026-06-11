@@ -12,13 +12,23 @@ import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/u
 import { SelectDisplay } from '@/components/ui/select-display'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Textarea } from '@/components/ui/textarea'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { formatCurrency, formatDate, RESERVATION_STATUS_LABEL, RESERVATION_STATUS_COLOR, diffDays } from '@/lib/utils'
 
 function formatTime(time: string | null | undefined): string {
   if (!time) return ''
   return time.slice(0, 5) // "HH:MM"
 }
-import { Plus, Search, CalendarDays } from 'lucide-react'
+
+function addHours(time: string, hours: number): string {
+  const [h, m] = time.split(':').map(Number)
+  const total = (h * 60 + m + hours * 60) % (24 * 60)
+  const hh = Math.floor(total / 60).toString().padStart(2, '0')
+  const mm = (total % 60).toString().padStart(2, '0')
+  return `${hh}:${mm}`
+}
+import { Plus, Search, CalendarDays, Car, PawPrint, Coffee, Settings, Save, Clock } from 'lucide-react'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
 
@@ -39,13 +49,83 @@ const STATUS_FLOW: Record<ReservationStatus, ReservationStatus[]> = {
   cancelada: [],
 }
 
+// ─── Card de configuração de reserva por hora ────────────────────────────────
+const HourlyPricingCard = memo(function HourlyPricingCard({
+  hotelId, valorHoraInicial, valorHoraAdicional,
+}: { hotelId: string; valorHoraInicial: number; valorHoraAdicional: number }) {
+  const [form, setForm] = useState({
+    valor_hora_inicial: String(valorHoraInicial ?? 50),
+    valor_hora_adicional: String(valorHoraAdicional ?? 0),
+  })
+  const [saving, setSaving] = useState(false)
+
+  async function handleSave() {
+    setSaving(true)
+    const supabase = createClient()
+    const { error } = await supabase.from('hotels').update({
+      valor_hora_inicial: Number(form.valor_hora_inicial) || 0,
+      valor_hora_adicional: Number(form.valor_hora_adicional) || 0,
+    }).eq('id', hotelId)
+
+    if (error) { toast.error('Erro ao salvar configurações: ' + error.message); setSaving(false); return }
+    toast.success('Configurações salvas')
+    setSaving(false)
+  }
+
+  const f = (field: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) => setForm(prev => ({ ...prev, [field]: e.target.value }))
+
+  return (
+    <Card className="border-0 shadow-sm">
+      <CardHeader className="pb-3">
+        <div className="flex items-center gap-2">
+          <div className="p-1.5 bg-blue-50 rounded-lg">
+            <Clock className="h-4 w-4 text-blue-600" />
+          </div>
+          <div>
+            <CardTitle className="text-base">Reserva por Hora</CardTitle>
+            <CardDescription className="text-xs mt-0.5">
+              Defina os valores para reservas avulsas cobradas por hora
+            </CardDescription>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-2 gap-3 max-w-md">
+          <div className="space-y-1">
+            <Label className="text-xs">Valor da 1ª hora</Label>
+            <Input type="number" min={0} step="0.01" value={form.valor_hora_inicial} onChange={f('valor_hora_inicial')} />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Valor por hora adicional</Label>
+            <Input type="number" min={0} step="0.01" value={form.valor_hora_adicional} onChange={f('valor_hora_adicional')} />
+          </div>
+        </div>
+        <Button onClick={handleSave} disabled={saving} className="bg-blue-600 hover:bg-blue-700 mt-4">
+          <Save className="h-4 w-4 mr-2" />
+          {saving ? 'Salvando...' : 'Salvar Configurações'}
+        </Button>
+      </CardContent>
+    </Card>
+  )
+})
+
 // ─── Dialog isolado com estado próprio ───────────────────────────────────────
 const emptyForm = {
   room_id: '', guest_id: '',
   checkin_previsto: '', checkout_previsto: '',
   checkin_hora_prevista: '',
   quantidade_pessoas: 1, observacoes: '',
+  tem_veiculo: false, quantidade_veiculos: 1,
+  tem_pet: false, quantidade_pets: 1,
+  tem_cafe: false,
+  tipo_reserva: 'diaria' as 'diaria' | 'hora',
+  quantidade_horas: 1,
 }
+
+const tipoReservaOptions = [
+  { value: 'diaria', label: 'Diária / Pernoite' },
+  { value: 'hora', label: 'Por Hora(s)' },
+]
 
 interface NovaReservaDialogProps {
   open: boolean
@@ -53,11 +133,15 @@ interface NovaReservaDialogProps {
   rooms: RoomOption[]
   guests: GuestOption[]
   hotelId: string
+  valorCafePorPessoa: number
+  valorHoraInicial: number
+  valorHoraAdicional: number
+  betaFeatures: boolean
   onCreated: (reservation: ReservationWithRelations) => void
 }
 
 const NovaReservaDialog = memo(function NovaReservaDialog({
-  open, onClose, rooms, guests, hotelId, onCreated,
+  open, onClose, rooms, guests, hotelId, valorCafePorPessoa, valorHoraInicial, valorHoraAdicional, betaFeatures, onCreated,
 }: NovaReservaDialogProps) {
   const [form, setForm] = useState(emptyForm)
   const [saving, setSaving] = useState(false)
@@ -77,7 +161,15 @@ const NovaReservaDialog = memo(function NovaReservaDialog({
     () => form.checkin_previsto && form.checkout_previsto ? diffDays(form.checkin_previsto, form.checkout_previsto) : 0,
     [form.checkin_previsto, form.checkout_previsto]
   )
-  const total = (selectedRoom?.diaria ?? 0) * nights
+  const isHourly = betaFeatures && form.tipo_reserva === 'hora'
+  const cafeExtra = form.tem_cafe ? valorCafePorPessoa * form.quantidade_pessoas : 0
+  const valorDiaria = (selectedRoom?.diaria ?? 0) + cafeExtra
+  const horasExtra = Math.max(0, form.quantidade_horas - 1)
+  const totalHora = valorHoraInicial + horasExtra * valorHoraAdicional
+  const total = isHourly ? totalHora : valorDiaria * nights
+  const checkoutHoraPrevista = isHourly && form.checkin_hora_prevista
+    ? addHours(form.checkin_hora_prevista, form.quantidade_horas)
+    : null
 
   function resetAndClose() {
     setForm(emptyForm)
@@ -85,11 +177,16 @@ const NovaReservaDialog = memo(function NovaReservaDialog({
   }
 
   async function handleSave() {
-    if (!form.room_id || !form.guest_id || !form.checkin_previsto || !form.checkout_previsto) {
+    if (!form.room_id || !form.guest_id || !form.checkin_previsto) {
       toast.error('Preencha todos os campos obrigatórios')
       return
     }
-    if (nights <= 0) { toast.error('Datas inválidas — checkout deve ser após check-in'); return }
+    if (isHourly) {
+      if (form.quantidade_horas <= 0) { toast.error('Informe a quantidade de horas'); return }
+    } else {
+      if (!form.checkout_previsto) { toast.error('Preencha todos os campos obrigatórios'); return }
+      if (nights <= 0) { toast.error('Datas inválidas — checkout deve ser após check-in'); return }
+    }
 
     setSaving(true)
     const supabase = createClient()
@@ -101,13 +198,21 @@ const NovaReservaDialog = memo(function NovaReservaDialog({
         room_id: form.room_id,
         guest_id: form.guest_id,
         checkin_previsto: form.checkin_previsto,
-        checkout_previsto: form.checkout_previsto,
+        checkout_previsto: isHourly ? form.checkin_previsto : form.checkout_previsto,
         quantidade_pessoas: form.quantidade_pessoas,
-        valor_diaria: selectedRoom!.diaria,
+        valor_diaria: isHourly ? valorHoraInicial : valorDiaria,
         valor_total: total,
         checkin_hora_prevista: form.checkin_hora_prevista || null,
         observacoes: form.observacoes,
         status: 'criada',
+        tem_veiculo: form.tem_veiculo,
+        quantidade_veiculos: form.tem_veiculo ? form.quantidade_veiculos : null,
+        tem_pet: form.tem_pet,
+        quantidade_pets: form.tem_pet ? form.quantidade_pets : null,
+        tem_cafe: form.tem_cafe,
+        tipo_reserva: form.tipo_reserva,
+        quantidade_horas: isHourly ? form.quantidade_horas : null,
+        checkout_hora_prevista: isHourly ? checkoutHoraPrevista : null,
       })
       .select('*, room:rooms(id,numero,nome,diaria), guest:guests(id,nome,cpf,telefone)')
       .single()
@@ -174,35 +279,86 @@ const NovaReservaDialog = memo(function NovaReservaDialog({
             </Select>
           </div>
 
-          {/* Datas */}
-          <div className="grid grid-cols-2 gap-3">
+          {/* Tipo de reserva */}
+          {betaFeatures && (
             <div className="space-y-1">
-              <Label>Check-in *</Label>
+              <Label>Tipo de Reserva</Label>
+              <Select
+                value={form.tipo_reserva}
+                onValueChange={v => setForm(f => ({ ...f, tipo_reserva: (v as 'diaria' | 'hora') ?? 'diaria' }))}
+              >
+                <SelectTrigger>
+                  <SelectDisplay value={form.tipo_reserva} options={tipoReservaOptions} />
+                </SelectTrigger>
+                <SelectContent>
+                  {tipoReservaOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {/* Datas */}
+          {isHourly ? (
+            <div className="space-y-1">
+              <Label>Data *</Label>
               <Input
                 type="date"
                 value={form.checkin_previsto}
                 onChange={e => setForm(f => ({ ...f, checkin_previsto: e.target.value }))}
               />
             </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label>Check-in *</Label>
+                <Input
+                  type="date"
+                  value={form.checkin_previsto}
+                  onChange={e => setForm(f => ({ ...f, checkin_previsto: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label>Check-out *</Label>
+                <Input
+                  type="date"
+                  value={form.checkout_previsto}
+                  onChange={e => setForm(f => ({ ...f, checkout_previsto: e.target.value }))}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Horário previsto do check-in / quantidade de horas */}
+          {isHourly ? (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label>Horário de entrada</Label>
+                <Input
+                  type="time"
+                  value={form.checkin_hora_prevista}
+                  onChange={e => setForm(f => ({ ...f, checkin_hora_prevista: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label>Quantidade de horas</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  value={form.quantidade_horas}
+                  onChange={e => setForm(f => ({ ...f, quantidade_horas: +e.target.value }))}
+                />
+              </div>
+            </div>
+          ) : (
             <div className="space-y-1">
-              <Label>Check-out *</Label>
+              <Label>Horário previsto de check-in</Label>
               <Input
-                type="date"
-                value={form.checkout_previsto}
-                onChange={e => setForm(f => ({ ...f, checkout_previsto: e.target.value }))}
+                type="time"
+                value={form.checkin_hora_prevista}
+                onChange={e => setForm(f => ({ ...f, checkin_hora_prevista: e.target.value }))}
               />
             </div>
-          </div>
-
-          {/* Horário previsto do check-in */}
-          <div className="space-y-1">
-            <Label>Horário previsto de check-in</Label>
-            <Input
-              type="time"
-              value={form.checkin_hora_prevista}
-              onChange={e => setForm(f => ({ ...f, checkin_hora_prevista: e.target.value }))}
-            />
-          </div>
+          )}
 
           {/* Pessoas */}
           <div className="space-y-1">
@@ -215,13 +371,83 @@ const NovaReservaDialog = memo(function NovaReservaDialog({
             />
           </div>
 
+          {/* Veículos, pets e café da manhã */}
+          {betaFeatures && (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Checkbox
+                checked={form.tem_veiculo}
+                onCheckedChange={(checked) => setForm(f => ({ ...f, tem_veiculo: checked === true }))}
+              />
+              <Label className="font-normal">Possui veículo(s)</Label>
+            </div>
+            {form.tem_veiculo && (
+              <div className="space-y-1 pl-6">
+                <Label className="text-xs">Quantidade de veículos</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  value={form.quantidade_veiculos}
+                  onChange={e => setForm(f => ({ ...f, quantidade_veiculos: +e.target.value }))}
+                />
+              </div>
+            )}
+
+            <div className="flex items-center gap-2">
+              <Checkbox
+                checked={form.tem_pet}
+                onCheckedChange={(checked) => setForm(f => ({ ...f, tem_pet: checked === true }))}
+              />
+              <Label className="font-normal">Possui pet(s)</Label>
+            </div>
+            {form.tem_pet && (
+              <div className="space-y-1 pl-6">
+                <Label className="text-xs">Quantidade de pets</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  value={form.quantidade_pets}
+                  onChange={e => setForm(f => ({ ...f, quantidade_pets: +e.target.value }))}
+                />
+              </div>
+            )}
+
+            <div className="flex items-center gap-2">
+              <Checkbox
+                checked={form.tem_cafe}
+                onCheckedChange={(checked) => setForm(f => ({ ...f, tem_cafe: checked === true }))}
+              />
+              <Label className="font-normal">
+                Café da manhã{valorCafePorPessoa > 0 && ` (+ ${formatCurrency(valorCafePorPessoa)}/pessoa/diária)`}
+              </Label>
+            </div>
+          </div>
+          )}
+
           {/* Resumo */}
-          {nights > 0 && selectedRoom && (
+          {isHourly ? (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm">
+              <p className="text-blue-800">
+                1ª hora: {formatCurrency(valorHoraInicial)}
+                {horasExtra > 0 && <> + {horasExtra}h adicional × {formatCurrency(valorHoraAdicional)}</>}
+              </p>
               <p className="text-blue-800 font-medium">
-                {nights} noite(s) × {formatCurrency(selectedRoom.diaria)} = <strong>{formatCurrency(total)}</strong>
+                Total: <strong>{formatCurrency(total)}</strong>
+                {checkoutHoraPrevista && <> — saída prevista às {checkoutHoraPrevista}</>}
               </p>
             </div>
+          ) : (
+            nights > 0 && selectedRoom && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm">
+                <p className="text-blue-800">
+                  Diária: {formatCurrency(selectedRoom.diaria)}
+                  {cafeExtra > 0 && <> + {formatCurrency(cafeExtra)} (café) = {formatCurrency(valorDiaria)}</>}
+                </p>
+                <p className="text-blue-800 font-medium">
+                  {nights} noite(s) × {formatCurrency(valorDiaria)} = <strong>{formatCurrency(total)}</strong>
+                </p>
+              </div>
+            )
           )}
 
           {/* Observações */}
@@ -250,9 +476,10 @@ const NovaReservaDialog = memo(function NovaReservaDialog({
 interface ReservationsTableProps {
   reservations: ReservationWithRelations[]
   onUpdateStatus: (id: string, status: ReservationStatus) => void
+  betaFeatures: boolean
 }
 
-const ReservationsTable = memo(function ReservationsTable({ reservations, onUpdateStatus }: ReservationsTableProps) {
+const ReservationsTable = memo(function ReservationsTable({ reservations, onUpdateStatus, betaFeatures }: ReservationsTableProps) {
   if (reservations.length === 0) {
     return (
       <div className="text-center py-16 text-slate-500">
@@ -282,6 +509,19 @@ const ReservationsTable = memo(function ReservationsTable({ reservations, onUpda
               <TableCell>
                 <p className="font-medium">{r.guest?.nome}</p>
                 <p className="text-xs text-slate-500">{r.guest?.telefone}</p>
+                {betaFeatures && (r.tem_veiculo || r.tem_pet || r.tem_cafe) && (
+                  <div className="flex items-center gap-2 mt-1 text-slate-400">
+                    {r.tem_veiculo && (
+                      <span className="inline-flex items-center gap-1 text-xs"><Car className="h-3.5 w-3.5" /> {r.quantidade_veiculos ?? 1}</span>
+                    )}
+                    {r.tem_pet && (
+                      <span className="inline-flex items-center gap-1 text-xs"><PawPrint className="h-3.5 w-3.5" /> {r.quantidade_pets ?? 1}</span>
+                    )}
+                    {r.tem_cafe && (
+                      <span className="inline-flex items-center gap-1 text-xs"><Coffee className="h-3.5 w-3.5" /></span>
+                    )}
+                  </div>
+                )}
               </TableCell>
               <TableCell>Quarto {r.room?.numero}</TableCell>
               <TableCell>
@@ -289,8 +529,24 @@ const ReservationsTable = memo(function ReservationsTable({ reservations, onUpda
                 {r.checkin_hora_prevista && (
                   <p className="text-xs text-slate-500">{formatTime(r.checkin_hora_prevista)}</p>
                 )}
+                {betaFeatures && r.tipo_reserva === 'hora' && (
+                  <Badge variant="outline" className="text-xs mt-1 bg-purple-50 text-purple-700 border-purple-200">
+                    <Clock className="h-3 w-3 mr-1" /> Por hora ({r.quantidade_horas}h)
+                  </Badge>
+                )}
               </TableCell>
-              <TableCell>{formatDate(r.checkout_previsto)}</TableCell>
+              <TableCell>
+                {betaFeatures && r.tipo_reserva === 'hora' ? (
+                  <>
+                    <p>{formatDate(r.checkout_previsto)}</p>
+                    {r.checkout_hora_prevista && (
+                      <p className="text-xs text-slate-500">{formatTime(r.checkout_hora_prevista)}</p>
+                    )}
+                  </>
+                ) : (
+                  formatDate(r.checkout_previsto)
+                )}
+              </TableCell>
               <TableCell>{formatCurrency(r.valor_total)}</TableCell>
               <TableCell>
                 <Badge variant="outline" className={`text-xs ${RESERVATION_STATUS_COLOR[r.status]}`}>
@@ -326,6 +582,11 @@ interface ReservationsClientProps {
   rooms: RoomOption[]
   guests: GuestOption[]
   hotelId: string
+  valorCafePorPessoa: number
+  valorHoraInicial: number
+  valorHoraAdicional: number
+  canEditSettings: boolean
+  betaFeatures: boolean
 }
 
 const statusFilterOptions = [
@@ -333,7 +594,7 @@ const statusFilterOptions = [
   ...Object.entries(RESERVATION_STATUS_LABEL).map(([k, v]) => ({ value: k, label: v })),
 ]
 
-export function ReservationsClient({ reservations: initialReservations, rooms, guests, hotelId }: ReservationsClientProps) {
+export function ReservationsClient({ reservations: initialReservations, rooms, guests, hotelId, valorCafePorPessoa, valorHoraInicial, valorHoraAdicional, canEditSettings, betaFeatures }: ReservationsClientProps) {
   const [reservations, setReservations] = useState(initialReservations)
   const [search, setSearch] = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
@@ -396,8 +657,17 @@ export function ReservationsClient({ reservations: initialReservations, rooms, g
         </Select>
       </div>
 
+      {/* Configurações de reserva por hora */}
+      {canEditSettings && betaFeatures && (
+        <HourlyPricingCard
+          hotelId={hotelId}
+          valorHoraInicial={valorHoraInicial}
+          valorHoraAdicional={valorHoraAdicional}
+        />
+      )}
+
       {/* Tabela memoizada — não re-renderiza quando o form do dialog muda */}
-      <ReservationsTable reservations={filtered} onUpdateStatus={handleUpdateStatus} />
+      <ReservationsTable reservations={filtered} onUpdateStatus={handleUpdateStatus} betaFeatures={betaFeatures} />
 
       {/* Dialog com estado isolado — não re-renderiza a tabela */}
       <NovaReservaDialog
@@ -406,6 +676,10 @@ export function ReservationsClient({ reservations: initialReservations, rooms, g
         rooms={rooms}
         guests={guests}
         hotelId={hotelId}
+        valorCafePorPessoa={valorCafePorPessoa}
+        valorHoraInicial={valorHoraInicial}
+        valorHoraAdicional={valorHoraAdicional}
+        betaFeatures={betaFeatures}
         onCreated={handleCreated}
       />
     </div>

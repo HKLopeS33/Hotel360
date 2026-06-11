@@ -8,24 +8,28 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/textarea'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Plus, Search, Pencil, Users } from 'lucide-react'
+import { Plus, Search, Pencil, Users, Paperclip, FileText } from 'lucide-react'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
 
 interface GuestsClientProps {
   guests: Guest[]
   hotelId: string
+  betaFeatures: boolean
 }
 
-const emptyGuest = { nome: '', cpf: '', rg: '', telefone: '', email: '', endereco: '', cidade: '', estado: '', nacionalidade: 'Brasileiro(a)', observacoes: '' }
+const emptyGuest = { nome: '', cpf: '', rg: '', telefone: '', email: '', endereco: '', cidade: '', estado: '', nacionalidade: 'Brasileiro(a)', observacoes: '', tem_veiculo: false, placa_veiculo: '' }
 
-export function GuestsClient({ guests: initialGuests, hotelId }: GuestsClientProps) {
+export function GuestsClient({ guests: initialGuests, hotelId, betaFeatures }: GuestsClientProps) {
   const [guests, setGuests] = useState(initialGuests)
   const [search, setSearch] = useState('')
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState<Guest | null>(null)
   const [form, setForm] = useState(emptyGuest)
+  const [documentFile, setDocumentFile] = useState<File | null>(null)
+  const [documentoUrl, setDocumentoUrl] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const router = useRouter()
 
@@ -39,30 +43,66 @@ export function GuestsClient({ guests: initialGuests, hotelId }: GuestsClientPro
   function openNew() {
     setEditing(null)
     setForm(emptyGuest)
+    setDocumentFile(null)
+    setDocumentoUrl(null)
     setOpen(true)
   }
 
   function openEdit(g: Guest) {
     setEditing(g)
-    setForm({ nome: g.nome, cpf: g.cpf ?? '', rg: g.rg ?? '', telefone: g.telefone ?? '', email: g.email ?? '', endereco: g.endereco ?? '', cidade: g.cidade ?? '', estado: g.estado ?? '', nacionalidade: g.nacionalidade ?? 'Brasileiro(a)', observacoes: g.observacoes ?? '' })
+    setForm({ nome: g.nome, cpf: g.cpf ?? '', rg: g.rg ?? '', telefone: g.telefone ?? '', email: g.email ?? '', endereco: g.endereco ?? '', cidade: g.cidade ?? '', estado: g.estado ?? '', nacionalidade: g.nacionalidade ?? 'Brasileiro(a)', observacoes: g.observacoes ?? '', tem_veiculo: g.tem_veiculo ?? false, placa_veiculo: g.placa_veiculo ?? '' })
+    setDocumentFile(null)
+    setDocumentoUrl(g.documento_url ?? null)
     setOpen(true)
+  }
+
+  async function handleVerDocumento() {
+    if (!documentoUrl) return
+    const supabase = createClient()
+    const { data, error } = await supabase.storage.from('guest-documents').createSignedUrl(documentoUrl, 60)
+    if (error || !data) { toast.error('Erro ao abrir documento'); return }
+    window.open(data.signedUrl, '_blank')
   }
 
   async function handleSave() {
     if (!form.nome) { toast.error('Nome é obrigatório'); return }
     setSaving(true)
     const supabase = createClient()
+    const payload = {
+      ...form,
+      placa_veiculo: form.tem_veiculo ? form.placa_veiculo : null,
+    }
+
+    let guestId = editing?.id
     if (editing) {
-      const { error } = await supabase.from('guests').update(form).eq('id', editing.id)
+      const { error } = await supabase.from('guests').update(payload).eq('id', editing.id)
       if (error) { toast.error('Erro ao atualizar hóspede'); setSaving(false); return }
-      setGuests(guests.map(g => g.id === editing.id ? { ...g, ...form } : g))
+    } else {
+      const { data, error } = await supabase.from('guests').insert({ ...payload, hotel_id: hotelId }).select().single()
+      if (error) { toast.error('Erro ao cadastrar hóspede'); setSaving(false); return }
+      guestId = data.id
+    }
+
+    let novoDocumentoUrl = documentoUrl
+    if (documentFile && guestId) {
+      const path = `${hotelId}/${guestId}/${documentFile.name}`
+      const { error: uploadError } = await supabase.storage.from('guest-documents').upload(path, documentFile, { upsert: true })
+      if (uploadError) {
+        toast.error('Hóspede salvo, mas houve erro ao enviar o documento')
+      } else {
+        novoDocumentoUrl = path
+        await supabase.from('guests').update({ documento_url: path }).eq('id', guestId)
+      }
+    }
+
+    if (editing) {
+      setGuests(guests.map(g => g.id === editing.id ? { ...g, ...payload, documento_url: novoDocumentoUrl } : g))
       toast.success('Hóspede atualizado')
     } else {
-      const { data, error } = await supabase.from('guests').insert({ ...form, hotel_id: hotelId }).select().single()
-      if (error) { toast.error('Erro ao cadastrar hóspede'); setSaving(false); return }
-      setGuests([...guests, data])
+      setGuests([...guests, { ...payload, id: guestId!, hotel_id: hotelId, documento_url: novoDocumentoUrl } as Guest])
       toast.success('Hóspede cadastrado')
     }
+
     setOpen(false)
     setSaving(false)
     router.refresh()
@@ -177,6 +217,49 @@ export function GuestsClient({ guests: initialGuests, hotelId }: GuestsClientPro
               <Label>Observações</Label>
               <Textarea value={form.observacoes} onChange={f('observacoes')} rows={2} />
             </div>
+
+            {betaFeatures && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    checked={form.tem_veiculo}
+                    onCheckedChange={(checked) => setForm(f => ({ ...f, tem_veiculo: checked === true }))}
+                  />
+                  <Label className="font-normal">Possui veículo</Label>
+                </div>
+                {form.tem_veiculo && (
+                  <div className="space-y-1 pl-6">
+                    <Label className="text-xs">Placa do veículo</Label>
+                    <Input
+                      value={form.placa_veiculo}
+                      onChange={f('placa_veiculo')}
+                      placeholder="ABC-1234"
+                    />
+                  </div>
+                )}
+
+                <div className="space-y-1">
+                  <Label>Documento (RG/CNH)</Label>
+                  <div className="flex items-center gap-2">
+                    <label className="flex items-center gap-2 text-sm border border-slate-200 rounded-md px-3 py-2 cursor-pointer hover:bg-slate-50">
+                      <Paperclip className="h-4 w-4" />
+                      {documentFile ? documentFile.name : 'Anexar arquivo'}
+                      <input
+                        type="file"
+                        accept="image/*,application/pdf"
+                        className="hidden"
+                        onChange={e => setDocumentFile(e.target.files?.[0] ?? null)}
+                      />
+                    </label>
+                    {documentoUrl && !documentFile && (
+                      <Button type="button" variant="outline" size="sm" onClick={handleVerDocumento}>
+                        <FileText className="h-3.5 w-3.5 mr-1" /> Ver documento
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>

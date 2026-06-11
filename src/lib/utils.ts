@@ -23,6 +23,11 @@ export function diffDays(from: string | Date, to: string | Date): number {
   return Math.ceil((b.getTime() - a.getTime()) / (1000 * 60 * 60 * 24))
 }
 
+export function formatTime(time: string | null | undefined): string {
+  if (!time) return ''
+  return time.slice(0, 5) // "HH:MM"
+}
+
 export const ROOM_STATUS_LABEL: Record<string, string> = {
   livre: 'Livre',
   ocupado: 'Ocupado',
@@ -55,4 +60,30 @@ export const RESERVATION_STATUS_COLOR: Record<string, string> = {
   hospedado: 'text-green-600 bg-green-50 border-green-200',
   checkout: 'text-purple-600 bg-purple-50 border-purple-200',
   cancelada: 'text-red-600 bg-red-50 border-red-200',
+}
+
+export const ONLINE_RESERVATION_STATUS_LABEL: Record<string, string> = {
+  pendente: 'Pendente',
+  aprovada: 'Aprovada',
+  recusada: 'Recusada',
+}
+
+export const ONLINE_RESERVATION_STATUS_COLOR: Record<string, string> = {
+  pendente: 'text-yellow-600 bg-yellow-50 border-yellow-200',
+  aprovada: 'text-green-600 bg-green-50 border-green-200',
+  recusada: 'text-red-600 bg-red-50 border-red-200',
+}
+
+export const ONLINE_PAYMENT_STATUS_LABEL: Record<string, string> = {
+  pendente: 'Pagamento pendente',
+  pago: 'Pago',
+  reembolsado: 'Reembolsado',
+  falhou: 'Falhou',
+}
+
+export const ONLINE_PAYMENT_STATUS_COLOR: Record<string, string> = {
+  pendente: 'text-yellow-600 bg-yellow-50 border-yellow-200',
+  pago: 'text-green-600 bg-green-50 border-green-200',
+  reembolsado: 'text-slate-600 bg-slate-50 border-slate-200',
+  falhou: 'text-red-600 bg-red-50 border-red-200',
 }

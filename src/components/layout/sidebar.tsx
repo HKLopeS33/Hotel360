@@ -8,7 +8,7 @@ import { Profile } from '@/types/database'
 import {
   LayoutDashboard, BedDouble, Users, CalendarDays,
   LogIn, LogOut, Sparkles, Wrench, DollarSign, Building2,
-  ShieldCheck, ChevronLeft, ChevronRight,
+  ShieldCheck, ChevronLeft, ChevronRight, Globe,
 } from 'lucide-react'
 import { useState } from 'react'
 import { Badge } from '@/components/ui/badge'
@@ -23,6 +23,8 @@ interface NavItem {
   icon: React.ElementType
   /** Roles que podem ver este item. Vazio = todos os roles de hotel */
   roles: string[]
+  /** Se true, item só aparece para hotéis com beta_tester = true */
+  betaOnly?: boolean
 }
 
 // Acesso por função:
@@ -39,6 +41,7 @@ const navItems: NavItem[] = [
   { href: '/quartos',    label: 'Quartos',    icon: BedDouble,       roles: RECEPTION },
   { href: '/hospedes',   label: 'Hóspedes',   icon: Users,           roles: RECEPTION },
   { href: '/reservas',   label: 'Reservas',   icon: CalendarDays,    roles: RECEPTION },
+  { href: '/reservas-online', label: 'Reservas Online', icon: Globe, roles: RECEPTION, betaOnly: true },
   { href: '/checkin',    label: 'Check-in',   icon: LogIn,           roles: RECEPTION },
   { href: '/checkout',   label: 'Check-out',  icon: LogOut,          roles: RECEPTION },
   { href: '/limpeza',    label: 'Limpeza',    icon: Sparkles,        roles: ['master', 'admin', 'camareira'] },
@@ -65,9 +68,11 @@ export function Sidebar({ profile }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false)
 
   const isActive = (href: string) =>
-    pathname === href || (href !== '/dashboard' && pathname.startsWith(href))
+    pathname === href || (href !== '/dashboard' && pathname.startsWith(`${href}/`))
 
-  const visibleNav   = navItems.filter(i => i.roles.includes(profile.role))
+  const betaFeatures = profile.hotel?.beta_tester ?? false
+
+  const visibleNav   = navItems.filter(i => i.roles.includes(profile.role) && (!i.betaOnly || betaFeatures))
   const visibleAdmin = adminItems.filter(i => i.roles.includes(profile.role))
 
   return (
