@@ -30,10 +30,11 @@ export function Header({ profile }: HeaderProps) {
 
   async function handleLogout() {
     const supabase = createClient()
-    await supabase.auth.signOut()
-    router.push('/login')
-    router.refresh()
+    // scope: 'local' evita a chamada de rede para revogar o token no servidor,
+    // que podia travar o app se a conexão estivesse lenta/instável.
+    await supabase.auth.signOut({ scope: 'local' })
     toast.success('Logout realizado com sucesso')
+    window.location.href = '/login'
   }
 
   const initials = profile.nome.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()

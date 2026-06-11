@@ -9,14 +9,18 @@ VALUES ('guest-documents', 'guest-documents', false)
 ON CONFLICT (id) DO NOTHING;
 
 -- Arquivos organizados como {hotel_id}/{guest_id}/{arquivo}
+DROP POLICY IF EXISTS "guest_documents_select" ON storage.objects;
 CREATE POLICY "guest_documents_select" ON storage.objects FOR SELECT
   USING (bucket_id = 'guest-documents' AND (split_part(name, '/', 1) = auth_hotel_id()::text OR is_master()));
 
+DROP POLICY IF EXISTS "guest_documents_insert" ON storage.objects;
 CREATE POLICY "guest_documents_insert" ON storage.objects FOR INSERT
   WITH CHECK (bucket_id = 'guest-documents' AND (split_part(name, '/', 1) = auth_hotel_id()::text OR is_master()));
 
+DROP POLICY IF EXISTS "guest_documents_update" ON storage.objects;
 CREATE POLICY "guest_documents_update" ON storage.objects FOR UPDATE
   USING (bucket_id = 'guest-documents' AND (split_part(name, '/', 1) = auth_hotel_id()::text OR is_master()));
 
+DROP POLICY IF EXISTS "guest_documents_delete" ON storage.objects;
 CREATE POLICY "guest_documents_delete" ON storage.objects FOR DELETE
   USING (bucket_id = 'guest-documents' AND (split_part(name, '/', 1) = auth_hotel_id()::text OR is_master()));
