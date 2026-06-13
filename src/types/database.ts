@@ -41,6 +41,7 @@ export interface Hotel {
   online_valor_extra_pet?: number
   online_valor_extra_cafe?: number
   online_valor_extra_garagem?: number
+  online_valor_extra_veiculo?: number
   mp_access_token?: string | null
   mp_public_key?: string | null
   online_taxa_cancelamento_pct?: number

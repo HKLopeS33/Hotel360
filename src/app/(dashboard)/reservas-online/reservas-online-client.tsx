@@ -30,6 +30,7 @@ interface OnlinePricing {
   online_valor_extra_pet: number
   online_valor_extra_cafe: number
   online_valor_extra_garagem: number
+  online_valor_extra_veiculo: number
   online_taxa_cancelamento_pct: number
   politica_agendamento: string | null
   politica_pagamento: string | null
@@ -55,6 +56,7 @@ const PricingSettingsCard = memo(function PricingSettingsCard({
     online_valor_extra_pet: String(pricing.online_valor_extra_pet ?? 0),
     online_valor_extra_cafe: String(pricing.online_valor_extra_cafe ?? 0),
     online_valor_extra_garagem: String(pricing.online_valor_extra_garagem ?? 0),
+    online_valor_extra_veiculo: String(pricing.online_valor_extra_veiculo ?? 0),
     online_taxa_cancelamento_pct: String(pricing.online_taxa_cancelamento_pct ?? 0),
     politica_agendamento: pricing.politica_agendamento ?? '',
     politica_pagamento: pricing.politica_pagamento ?? '',
@@ -70,6 +72,7 @@ const PricingSettingsCard = memo(function PricingSettingsCard({
       online_valor_extra_pet: Number(form.online_valor_extra_pet) || 0,
       online_valor_extra_cafe: Number(form.online_valor_extra_cafe) || 0,
       online_valor_extra_garagem: Number(form.online_valor_extra_garagem) || 0,
+      online_valor_extra_veiculo: Number(form.online_valor_extra_veiculo) || 0,
       online_taxa_cancelamento_pct: Number(form.online_taxa_cancelamento_pct) || 0,
       politica_agendamento: form.politica_agendamento || null,
       politica_pagamento: form.politica_pagamento || null,
@@ -116,6 +119,10 @@ const PricingSettingsCard = memo(function PricingSettingsCard({
           <div className="space-y-1">
             <Label className="text-xs">Garagem (custo adicional)</Label>
             <Input type="number" min={0} step="0.01" value={form.online_valor_extra_garagem} onChange={f('online_valor_extra_garagem')} />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Extra por veículo (por diária)</Label>
+            <Input type="number" min={0} step="0.01" value={form.online_valor_extra_veiculo} onChange={f('online_valor_extra_veiculo')} />
           </div>
           <div className="space-y-1">
             <Label className="text-xs">Taxa de cancelamento (%)</Label>
@@ -177,6 +184,9 @@ const AprovarDialog = memo(function AprovarDialog({
     (reservation?.tem_pet ? (pricing.online_valor_extra_pet ?? 0) : 0) +
     (reservation?.tem_cafe
       ? (pricing.online_valor_extra_cafe ?? 0) * (betaFeatures ? (reservation?.quantidade_pessoas ?? 1) : 1)
+      : 0) +
+    (reservation?.tem_veiculo
+      ? (pricing.online_valor_extra_veiculo ?? 0) * (reservation?.quantidade_veiculos ?? 1)
       : 0)
   const valorDiaria = (selectedRoom?.diaria ?? 0) + extrasDiaria
   const garagemExtra = reservation?.tem_garagem ? (pricing.online_valor_extra_garagem ?? 0) : 0

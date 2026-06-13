@@ -17,7 +17,7 @@ export default async function ReservarPage({ params }: { params: Promise<{ hotel
 
   const { data: hotel } = await supabase
     .from('hotels')
-    .select('id, nome, online_valor_diaria, online_valor_extra_pet, online_valor_extra_cafe, online_valor_extra_garagem, politica_agendamento, politica_pagamento, politica_cancelamento, mp_public_key, beta_tester')
+    .select('id, nome, online_valor_diaria, online_valor_extra_pet, online_valor_extra_cafe, online_valor_extra_garagem, online_valor_extra_veiculo, politica_agendamento, politica_pagamento, politica_cancelamento, mp_public_key, beta_tester')
     .eq('id', hotelId)
     .single()
 
@@ -55,6 +55,7 @@ export default async function ReservarPage({ params }: { params: Promise<{ hotel
             online_valor_extra_pet: hotel.online_valor_extra_pet ?? 0,
             online_valor_extra_cafe: hotel.online_valor_extra_cafe ?? 0,
             online_valor_extra_garagem: hotel.online_valor_extra_garagem ?? 0,
+            online_valor_extra_veiculo: hotel.online_valor_extra_veiculo ?? 0,
           }}
           policies={{
             politica_agendamento: hotel.politica_agendamento ?? null,

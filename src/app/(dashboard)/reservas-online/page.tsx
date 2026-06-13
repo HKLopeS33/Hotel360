@@ -27,6 +27,7 @@ export default async function ReservasOnlinePage() {
         online_valor_extra_pet: profile.hotel?.online_valor_extra_pet ?? 0,
         online_valor_extra_cafe: profile.hotel?.online_valor_extra_cafe ?? 0,
         online_valor_extra_garagem: profile.hotel?.online_valor_extra_garagem ?? 0,
+        online_valor_extra_veiculo: profile.hotel?.online_valor_extra_veiculo ?? 0,
         online_taxa_cancelamento_pct: profile.hotel?.online_taxa_cancelamento_pct ?? 0,
         politica_agendamento: profile.hotel?.politica_agendamento ?? null,
         politica_pagamento: profile.hotel?.politica_pagamento ?? null,

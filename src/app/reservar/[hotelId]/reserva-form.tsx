@@ -17,6 +17,7 @@ interface OnlinePricing {
   online_valor_extra_pet: number
   online_valor_extra_cafe: number
   online_valor_extra_garagem: number
+  online_valor_extra_veiculo: number
 }
 
 interface ReservaPolicies {
@@ -58,15 +59,19 @@ export function ReservaForm({ hotelId, hotelNome, pricing, policies, mpPublicKey
     [form.checkin_previsto, form.checkout_previsto]
   )
 
+  const extrasDiaria = useMemo(() =>
+    (form.tem_pet ? pricing.online_valor_extra_pet : 0) +
+    (form.tem_cafe ? pricing.online_valor_extra_cafe * (betaFeatures ? form.quantidade_pessoas : 1) : 0) +
+    (form.tem_veiculo ? pricing.online_valor_extra_veiculo * form.quantidade_veiculos : 0)
+  , [pricing, form.tem_pet, form.tem_cafe, form.tem_veiculo, form.quantidade_pessoas, form.quantidade_veiculos, betaFeatures])
+
+  const valorDiaria = (pricing.online_valor_diaria ?? 0) + extrasDiaria
+  const garagem = form.tem_garagem ? pricing.online_valor_extra_garagem : 0
+
   const estimativa = useMemo(() => {
     if (pricing.online_valor_diaria == null || nights <= 0) return null
-    const extrasDiaria =
-      (form.tem_pet ? pricing.online_valor_extra_pet : 0) +
-      (form.tem_cafe ? pricing.online_valor_extra_cafe * (betaFeatures ? form.quantidade_pessoas : 1) : 0)
-    const valorDiaria = pricing.online_valor_diaria + extrasDiaria
-    const garagem = form.tem_garagem ? pricing.online_valor_extra_garagem : 0
     return valorDiaria * nights + garagem
-  }, [pricing, nights, form.tem_pet, form.tem_cafe, form.tem_garagem, form.quantidade_pessoas, betaFeatures])
+  }, [pricing.online_valor_diaria, nights, valorDiaria, garagem])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -240,7 +245,7 @@ export function ReservaForm({ hotelId, hotelNome, pricing, policies, mpPublicKey
             checked={form.tem_veiculo}
             onCheckedChange={(checked) => setForm(f => ({ ...f, tem_veiculo: checked === true }))}
           />
-          <Label>Vou levar veículo(s)</Label>
+          <Label>Vou levar veículo(s){pricing.online_valor_extra_veiculo > 0 && ` (+ ${formatCurrency(pricing.online_valor_extra_veiculo)}/diária)`}</Label>
         </div>
         {form.tem_veiculo && (
           <div className="space-y-1">
@@ -280,7 +285,14 @@ export function ReservaForm({ hotelId, hotelNome, pricing, policies, mpPublicKey
       </div>
 
       {estimativa != null && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm">
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm space-y-1">
+          <p className="text-blue-800">
+            Diária: {formatCurrency(pricing.online_valor_diaria ?? 0)}
+            {extrasDiaria > 0 && <> + {formatCurrency(extrasDiaria)} (extras) = {formatCurrency(valorDiaria)}</>}
+          </p>
+          {garagem > 0 && (
+            <p className="text-blue-800">Garagem: {formatCurrency(garagem)}</p>
+          )}
           <p className="text-blue-800 font-medium">
             {nights} noite(s) — valor estimado: <strong>{formatCurrency(estimativa)}</strong>
           </p>
