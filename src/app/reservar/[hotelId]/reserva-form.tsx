@@ -312,19 +312,28 @@ export function ReservaForm({ hotelId, hotelNome, pricing, policies, mpPublicKey
         <Textarea value={form.observacoes} onChange={e => setForm(f => ({ ...f, observacoes: e.target.value }))} rows={3} />
       </div>
 
-      {estimativa != null && (
+      {diariaBase != null && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm space-y-1">
           <p className="text-blue-800">
-            Diária: {formatCurrency(diariaBase ?? 0)}
+            Diária: {formatCurrency(diariaBase)}
             {extrasDiaria > 0 && <> + {formatCurrency(extrasDiaria)} (extras) = {formatCurrency(valorDiaria)}</>}
           </p>
           {garagem > 0 && (
             <p className="text-blue-800">Garagem: {formatCurrency(garagem)}</p>
           )}
-          <p className="text-blue-800 font-medium">
-            {nights} noite(s) — valor estimado: <strong>{formatCurrency(estimativa)}</strong>
+          {estimativa != null ? (
+            <p className="text-blue-800 font-medium">
+              {nights} noite(s) — valor estimado: <strong>{formatCurrency(estimativa)}</strong>
+            </p>
+          ) : (
+            <p className="text-blue-800 font-medium">
+              Valor por noite: <strong>{formatCurrency(valorDiaria)}</strong>
+              {garagem > 0 && <> + {formatCurrency(garagem)} (garagem)</>}
+            </p>
+          )}
+          <p className="text-xs text-blue-700 mt-1">
+            {estimativa != null ? 'O valor final será confirmado pelo hotel.' : 'Selecione as datas de check-in e check-out para ver o valor total estimado.'}
           </p>
-          <p className="text-xs text-blue-700 mt-1">O valor final será confirmado pelo hotel.</p>
         </div>
       )}
 
