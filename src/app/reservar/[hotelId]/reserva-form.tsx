@@ -36,6 +36,7 @@ interface ReservaFormProps {
   policies: ReservaPolicies
   mpPublicKey: string | null
   quartosFotos: Record<string, string[]>
+  quartosPrecos: Record<string, number>
   betaFeatures: boolean
 }
 
@@ -51,7 +52,7 @@ const emptyForm = {
 const hasPolicies = (policies: ReservaPolicies) =>
   !!(policies.politica_agendamento || policies.politica_pagamento || policies.politica_cancelamento)
 
-export function ReservaForm({ hotelId, hotelNome, pricing, policies, mpPublicKey, quartosFotos, betaFeatures }: ReservaFormProps) {
+export function ReservaForm({ hotelId, hotelNome, pricing, policies, mpPublicKey, quartosFotos, quartosPrecos, betaFeatures }: ReservaFormProps) {
   const [form, setForm] = useState(emptyForm)
   const [aceitePoliticas, setAceitePoliticas] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -70,13 +71,16 @@ export function ReservaForm({ hotelId, hotelNome, pricing, policies, mpPublicKey
     (form.tem_veiculo ? pricing.online_valor_extra_veiculo * form.quantidade_veiculos : 0)
   , [pricing, form.tem_pet, form.tem_cafe, form.tem_veiculo, form.quantidade_pessoas, form.quantidade_veiculos, betaFeatures])
 
-  const valorDiaria = (pricing.online_valor_diaria ?? 0) + extrasDiaria
+  const diariaBase = (form.tipo_quarto && quartosPrecos[form.tipo_quarto] != null)
+    ? quartosPrecos[form.tipo_quarto]
+    : pricing.online_valor_diaria
+  const valorDiaria = (diariaBase ?? 0) + extrasDiaria
   const garagem = form.tem_garagem ? pricing.online_valor_extra_garagem : 0
 
   const estimativa = useMemo(() => {
-    if (pricing.online_valor_diaria == null || nights <= 0) return null
+    if (diariaBase == null || nights <= 0) return null
     return valorDiaria * nights + garagem
-  }, [pricing.online_valor_diaria, nights, valorDiaria, garagem])
+  }, [diariaBase, nights, valorDiaria, garagem])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -311,7 +315,7 @@ export function ReservaForm({ hotelId, hotelNome, pricing, policies, mpPublicKey
       {estimativa != null && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm space-y-1">
           <p className="text-blue-800">
-            Diária: {formatCurrency(pricing.online_valor_diaria ?? 0)}
+            Diária: {formatCurrency(diariaBase ?? 0)}
             {extrasDiaria > 0 && <> + {formatCurrency(extrasDiaria)} (extras) = {formatCurrency(valorDiaria)}</>}
           </p>
           {garagem > 0 && (
@@ -356,7 +360,7 @@ export function ReservaForm({ hotelId, hotelNome, pricing, policies, mpPublicKey
         </div>
       )}
 
-      <Button type="submit" disabled={saving} className="w-full bg-blue-600 hover:bg-blue-700">
+      <Button type="submit" disabled={saving} className="w-full text-white hover:opacity-90" style={{ backgroundColor: 'var(--brand, #2563eb)' }}>
         {saving ? 'Enviando...' : 'Enviar Solicitação'}
       </Button>
     </form>

@@ -43,6 +43,13 @@ export interface Hotel {
   online_valor_extra_garagem?: number
   online_valor_extra_veiculo?: number
   online_quartos_fotos?: Record<string, string[]>
+  online_quartos_precos?: Record<string, number>
+  online_logo_url?: string | null
+  online_imagem_capa_url?: string | null
+  online_cor_primaria?: string | null
+  online_descricao?: string | null
+  online_template?: string
+  online_fotos_galeria?: string[]
   mp_access_token?: string | null
   mp_public_key?: string | null
   online_taxa_cancelamento_pct?: number

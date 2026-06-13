@@ -101,3 +101,9 @@ export const ROOM_TYPE_LABEL: Record<string, string> = {
   casal: 'Casal',
   suite_master: 'Suíte Master',
 }
+
+export const TEMPLATE_OPTIONS = [
+  { value: 'classico', label: 'Clássico (capa + logo + galeria)' },
+  { value: 'moderno', label: 'Moderno (colunas: branding e formulário)' },
+  { value: 'minimalista', label: 'Minimalista (compacto)' },
+] as const

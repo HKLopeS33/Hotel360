@@ -17,9 +17,9 @@ import {
   formatCurrency, formatDate, formatTime, diffDays,
   ONLINE_RESERVATION_STATUS_LABEL, ONLINE_RESERVATION_STATUS_COLOR,
   ONLINE_PAYMENT_STATUS_LABEL, ONLINE_PAYMENT_STATUS_COLOR,
-  ROOM_TYPE_OPTIONS, ROOM_TYPE_LABEL,
+  ROOM_TYPE_OPTIONS, ROOM_TYPE_LABEL, TEMPLATE_OPTIONS,
 } from '@/lib/utils'
-import { Globe, Copy, Check, Car, Users as UsersIcon, PawPrint, Coffee, ParkingSquare, Settings, Save, Images, Upload } from 'lucide-react'
+import { Globe, Copy, Check, Car, Users as UsersIcon, PawPrint, Coffee, ParkingSquare, Settings, Save, Images, Upload, Palette } from 'lucide-react'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
 import { PhotoCarousel } from '@/components/photo-carousel'
@@ -39,6 +39,15 @@ interface OnlinePricing {
   politica_cancelamento: string | null
 }
 
+interface BrandingInfo {
+  online_logo_url: string | null
+  online_imagem_capa_url: string | null
+  online_cor_primaria: string | null
+  online_descricao: string | null
+  online_template: string
+  online_fotos_galeria: string[]
+}
+
 interface ReservasOnlineClientProps {
   onlineReservations: OnlineReservation[]
   rooms: RoomOption[]
@@ -47,6 +56,8 @@ interface ReservasOnlineClientProps {
   canEditSettings: boolean
   pricing: OnlinePricing
   quartosFotos: Record<string, string[]>
+  quartosPrecos: Record<string, number>
+  branding: BrandingInfo
   betaFeatures: boolean
 }
 
@@ -157,18 +168,225 @@ const PricingSettingsCard = memo(function PricingSettingsCard({
   )
 })
 
-// ─── Card de fotos por tipo de quarto ────────────────────────────────────────
+// ─── Card de personalização da página pública ────────────────────────────────
+const BrandingCard = memo(function BrandingCard({
+  hotelId, branding,
+}: { hotelId: string; branding: BrandingInfo }) {
+  const [logoUrl, setLogoUrl] = useState(branding.online_logo_url ?? '')
+  const [capaUrl, setCapaUrl] = useState(branding.online_imagem_capa_url ?? '')
+  const [galeria, setGaleria] = useState<string[]>(branding.online_fotos_galeria ?? [])
+  const [form, setForm] = useState({
+    online_cor_primaria: branding.online_cor_primaria || '#2563eb',
+    online_descricao: branding.online_descricao ?? '',
+    online_template: branding.online_template || 'classico',
+  })
+  const [uploadingLogo, setUploadingLogo] = useState(false)
+  const [uploadingCapa, setUploadingCapa] = useState(false)
+  const [uploadingGaleria, setUploadingGaleria] = useState(false)
+  const [saving, setSaving] = useState(false)
+
+  async function uploadSingle(file: File, pasta: 'logo' | 'capa') {
+    const supabase = createClient()
+    const path = `${hotelId}/${pasta}/${Date.now()}-${file.name}`
+    const { error } = await supabase.storage.from('hotel-branding').upload(path, file)
+    if (error) { toast.error(`Erro ao enviar imagem: ${error.message}`); return null }
+    return supabase.storage.from('hotel-branding').getPublicUrl(path).data.publicUrl
+  }
+
+  async function handleLogoChange(files: FileList | null) {
+    if (!files || files.length === 0) return
+    setUploadingLogo(true)
+    const url = await uploadSingle(files[0], 'logo')
+    if (url) {
+      const supabase = createClient()
+      const { error } = await supabase.from('hotels').update({ online_logo_url: url }).eq('id', hotelId)
+      if (error) { toast.error('Erro ao salvar logo: ' + error.message) } else { setLogoUrl(url); toast.success('Logo atualizada') }
+    }
+    setUploadingLogo(false)
+  }
+
+  async function handleCapaChange(files: FileList | null) {
+    if (!files || files.length === 0) return
+    setUploadingCapa(true)
+    const url = await uploadSingle(files[0], 'capa')
+    if (url) {
+      const supabase = createClient()
+      const { error } = await supabase.from('hotels').update({ online_imagem_capa_url: url }).eq('id', hotelId)
+      if (error) { toast.error('Erro ao salvar imagem de capa: ' + error.message) } else { setCapaUrl(url); toast.success('Imagem de capa atualizada') }
+    }
+    setUploadingCapa(false)
+  }
+
+  async function handleGaleriaChange(files: FileList | null) {
+    if (!files || files.length === 0) return
+    setUploadingGaleria(true)
+    const supabase = createClient()
+    const novasUrls: string[] = []
+    for (const file of Array.from(files)) {
+      const path = `${hotelId}/galeria/${Date.now()}-${file.name}`
+      const { error } = await supabase.storage.from('hotel-branding').upload(path, file)
+      if (error) { toast.error(`Erro ao enviar ${file.name}: ${error.message}`); continue }
+      novasUrls.push(supabase.storage.from('hotel-branding').getPublicUrl(path).data.publicUrl)
+    }
+    if (novasUrls.length > 0) {
+      const next = [...galeria, ...novasUrls]
+      const { error } = await supabase.from('hotels').update({ online_fotos_galeria: next }).eq('id', hotelId)
+      if (error) { toast.error('Erro ao salvar galeria: ' + error.message) } else { setGaleria(next); toast.success('Fotos adicionadas à galeria') }
+    }
+    setUploadingGaleria(false)
+  }
+
+  async function handleRemoveGaleria(index: number) {
+    const next = galeria.filter((_, i) => i !== index)
+    const supabase = createClient()
+    const { error } = await supabase.from('hotels').update({ online_fotos_galeria: next }).eq('id', hotelId)
+    if (error) { toast.error('Erro ao remover foto: ' + error.message); return }
+    setGaleria(next)
+  }
+
+  async function handleSave() {
+    setSaving(true)
+    const supabase = createClient()
+    const { error } = await supabase.from('hotels').update({
+      online_cor_primaria: form.online_cor_primaria || null,
+      online_descricao: form.online_descricao || null,
+      online_template: form.online_template,
+    }).eq('id', hotelId)
+    if (error) { toast.error('Erro ao salvar personalização: ' + error.message); setSaving(false); return }
+    toast.success('Personalização salva')
+    setSaving(false)
+  }
+
+  return (
+    <Card className="border-0 shadow-sm">
+      <CardHeader className="pb-3">
+        <div className="flex items-center gap-2">
+          <div className="p-1.5 bg-blue-50 rounded-lg">
+            <Palette className="h-4 w-4 text-blue-600" />
+          </div>
+          <div>
+            <CardTitle className="text-base">Personalização da Página de Reserva</CardTitle>
+            <CardDescription className="text-xs mt-0.5">
+              Logo, imagem de capa, cores, descrição e modelo de página exibidos no link de reserva online
+            </CardDescription>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label className="text-xs">Logo do hotel</Label>
+            {logoUrl && (
+              <div className="h-16 w-16 rounded-full overflow-hidden border border-slate-200 bg-white">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={logoUrl} alt="Logo" className="h-full w-full object-cover" />
+              </div>
+            )}
+            <label className="inline-flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700 cursor-pointer">
+              <Upload className="h-3.5 w-3.5" />
+              {uploadingLogo ? 'Enviando...' : 'Enviar logo'}
+              <input type="file" accept="image/*" className="hidden" disabled={uploadingLogo} onChange={(e) => { handleLogoChange(e.target.files); e.target.value = '' }} />
+            </label>
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-xs">Imagem de capa</Label>
+            {capaUrl && (
+              <div className="h-16 w-28 rounded-lg overflow-hidden border border-slate-200 bg-white">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={capaUrl} alt="Capa" className="h-full w-full object-cover" />
+              </div>
+            )}
+            <label className="inline-flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700 cursor-pointer">
+              <Upload className="h-3.5 w-3.5" />
+              {uploadingCapa ? 'Enviando...' : 'Enviar imagem de capa'}
+              <input type="file" accept="image/*" className="hidden" disabled={uploadingCapa} onChange={(e) => { handleCapaChange(e.target.files); e.target.value = '' }} />
+            </label>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-1">
+            <Label className="text-xs">Cor principal</Label>
+            <div className="flex items-center gap-2">
+              <input
+                type="color"
+                className="h-9 w-12 rounded border border-slate-200 cursor-pointer"
+                value={form.online_cor_primaria}
+                onChange={(e) => setForm(f => ({ ...f, online_cor_primaria: e.target.value }))}
+              />
+              <Input value={form.online_cor_primaria} onChange={(e) => setForm(f => ({ ...f, online_cor_primaria: e.target.value }))} className="max-w-32" />
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <Label className="text-xs">Modelo da página</Label>
+            <Select value={form.online_template} onValueChange={v => setForm(f => ({ ...f, online_template: v ?? 'classico' }))}>
+              <SelectTrigger>
+                <SelectDisplay value={form.online_template} options={[...TEMPLATE_OPTIONS]} />
+              </SelectTrigger>
+              <SelectContent>
+                {TEMPLATE_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <div className="space-y-1">
+          <Label className="text-xs">Descrição do hotel</Label>
+          <Textarea rows={3} placeholder="Conte um pouco sobre o hotel para os hóspedes..." value={form.online_descricao} onChange={(e) => setForm(f => ({ ...f, online_descricao: e.target.value }))} />
+        </div>
+
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <Label className="text-xs">Galeria de fotos do hotel</Label>
+            <label className="inline-flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700 cursor-pointer">
+              <Upload className="h-3.5 w-3.5" />
+              {uploadingGaleria ? 'Enviando...' : 'Adicionar fotos'}
+              <input type="file" accept="image/*" multiple className="hidden" disabled={uploadingGaleria} onChange={(e) => { handleGaleriaChange(e.target.files); e.target.value = '' }} />
+            </label>
+          </div>
+          <PhotoCarousel photos={galeria} emptyLabel="Nenhuma foto na galeria" onRemove={handleRemoveGaleria} />
+        </div>
+
+        <Button onClick={handleSave} disabled={saving} className="bg-blue-600 hover:bg-blue-700">
+          <Save className="h-4 w-4 mr-2" />
+          {saving ? 'Salvando...' : 'Salvar Personalização'}
+        </Button>
+      </CardContent>
+    </Card>
+  )
+})
+
+// ─── Card de fotos e preços por tipo de quarto ───────────────────────────────
 const RoomPhotosCard = memo(function RoomPhotosCard({
-  hotelId, quartosFotos,
-}: { hotelId: string; quartosFotos: Record<string, string[]> }) {
+  hotelId, quartosFotos, quartosPrecos,
+}: { hotelId: string; quartosFotos: Record<string, string[]>; quartosPrecos: Record<string, number> }) {
   const [fotos, setFotos] = useState<Record<string, string[]>>(quartosFotos)
   const [uploadingType, setUploadingType] = useState<string | null>(null)
+  const [precos, setPrecos] = useState<Record<string, string>>(
+    Object.fromEntries(ROOM_TYPE_OPTIONS.map(({ value }) => [value, quartosPrecos[value] != null ? String(quartosPrecos[value]) : '']))
+  )
+  const [savingPrecos, setSavingPrecos] = useState(false)
 
   async function persist(next: Record<string, string[]>) {
     const supabase = createClient()
     const { error } = await supabase.from('hotels').update({ online_quartos_fotos: next }).eq('id', hotelId)
     if (error) { toast.error('Erro ao salvar fotos: ' + error.message); return false }
     return true
+  }
+
+  async function handleSavePrecos() {
+    setSavingPrecos(true)
+    const next: Record<string, number> = {}
+    for (const { value } of ROOM_TYPE_OPTIONS) {
+      if (precos[value]) next[value] = Number(precos[value])
+    }
+    const supabase = createClient()
+    const { error } = await supabase.from('hotels').update({ online_quartos_precos: next }).eq('id', hotelId)
+    if (error) { toast.error('Erro ao salvar valores: ' + error.message); setSavingPrecos(false); return }
+    toast.success('Valores salvos')
+    setSavingPrecos(false)
   }
 
   async function handleUpload(tipo: string, files: FileList | null) {
@@ -208,9 +426,9 @@ const RoomPhotosCard = memo(function RoomPhotosCard({
             <Images className="h-4 w-4 text-blue-600" />
           </div>
           <div>
-            <CardTitle className="text-base">Fotos dos Tipos de Quarto</CardTitle>
+            <CardTitle className="text-base">Tipos de Quarto: Fotos e Valores</CardTitle>
             <CardDescription className="text-xs mt-0.5">
-              Anexe fotos para cada tipo de quarto exibido no link de reserva online
+              Defina o valor da diária e anexe fotos para cada tipo de quarto exibido no link de reserva online
             </CardDescription>
           </div>
         </div>
@@ -218,7 +436,7 @@ const RoomPhotosCard = memo(function RoomPhotosCard({
       <CardContent className="space-y-4">
         {ROOM_TYPE_OPTIONS.map(({ value, label }) => (
           <div key={value} className="space-y-2">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-2">
               <Label className="text-sm font-medium">{label}</Label>
               <label className="inline-flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700 cursor-pointer">
                 <Upload className="h-3.5 w-3.5" />
@@ -233,6 +451,14 @@ const RoomPhotosCard = memo(function RoomPhotosCard({
                 />
               </label>
             </div>
+            <div className="max-w-xs space-y-1">
+              <Label className="text-xs">Valor da diária</Label>
+              <Input
+                type="number" min={0} step="0.01" placeholder="Usar valor padrão"
+                value={precos[value]}
+                onChange={(e) => setPrecos(prev => ({ ...prev, [value]: e.target.value }))}
+              />
+            </div>
             <PhotoCarousel
               photos={fotos[value] ?? []}
               emptyLabel={`Nenhuma foto de quarto ${label}`}
@@ -240,6 +466,11 @@ const RoomPhotosCard = memo(function RoomPhotosCard({
             />
           </div>
         ))}
+
+        <Button onClick={handleSavePrecos} disabled={savingPrecos} className="bg-blue-600 hover:bg-blue-700">
+          <Save className="h-4 w-4 mr-2" />
+          {savingPrecos ? 'Salvando...' : 'Salvar Valores'}
+        </Button>
       </CardContent>
     </Card>
   )
@@ -527,7 +758,7 @@ const ReservasTable = memo(function ReservasTable({ reservations, onAprovar, onR
 })
 
 // ─── Componente principal ─────────────────────────────────────────────────────
-export function ReservasOnlineClient({ onlineReservations: initial, rooms, guests, hotelId, canEditSettings, pricing, quartosFotos, betaFeatures }: ReservasOnlineClientProps) {
+export function ReservasOnlineClient({ onlineReservations: initial, rooms, guests, hotelId, canEditSettings, pricing, quartosFotos, quartosPrecos, branding, betaFeatures }: ReservasOnlineClientProps) {
   const [reservations, setReservations] = useState(initial)
   const [aprovando, setAprovando] = useState<OnlineReservation | null>(null)
   const [copied, setCopied] = useState(false)
@@ -599,7 +830,8 @@ export function ReservasOnlineClient({ onlineReservations: initial, rooms, guest
       </div>
 
       {canEditSettings && <PricingSettingsCard hotelId={hotelId} pricing={pricing} betaFeatures={betaFeatures} />}
-      {canEditSettings && <RoomPhotosCard hotelId={hotelId} quartosFotos={quartosFotos} />}
+      {canEditSettings && <BrandingCard hotelId={hotelId} branding={branding} />}
+      {canEditSettings && <RoomPhotosCard hotelId={hotelId} quartosFotos={quartosFotos} quartosPrecos={quartosPrecos} />}
 
       <ReservasTable
         reservations={reservations}

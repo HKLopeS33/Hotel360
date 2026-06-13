@@ -34,6 +34,15 @@ export default async function ReservasOnlinePage() {
         politica_cancelamento: profile.hotel?.politica_cancelamento ?? null,
       }}
       quartosFotos={profile.hotel?.online_quartos_fotos ?? {}}
+      quartosPrecos={profile.hotel?.online_quartos_precos ?? {}}
+      branding={{
+        online_logo_url: profile.hotel?.online_logo_url ?? null,
+        online_imagem_capa_url: profile.hotel?.online_imagem_capa_url ?? null,
+        online_cor_primaria: profile.hotel?.online_cor_primaria ?? null,
+        online_descricao: profile.hotel?.online_descricao ?? null,
+        online_template: profile.hotel?.online_template ?? 'classico',
+        online_fotos_galeria: profile.hotel?.online_fotos_galeria ?? [],
+      }}
       betaFeatures={profile.hotel?.beta_tester ?? false}
     />
   )
