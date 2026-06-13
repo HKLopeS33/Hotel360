@@ -87,3 +87,17 @@ export const ONLINE_PAYMENT_STATUS_COLOR: Record<string, string> = {
   reembolsado: 'text-slate-600 bg-slate-50 border-slate-200',
   falhou: 'text-red-600 bg-red-50 border-red-200',
 }
+
+export const ROOM_TYPE_OPTIONS = [
+  { value: 'single', label: 'Single' },
+  { value: 'double', label: 'Double' },
+  { value: 'casal', label: 'Casal' },
+  { value: 'suite_master', label: 'Suíte Master' },
+] as const
+
+export const ROOM_TYPE_LABEL: Record<string, string> = {
+  single: 'Single',
+  double: 'Double',
+  casal: 'Casal',
+  suite_master: 'Suíte Master',
+}

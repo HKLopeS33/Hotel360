@@ -42,6 +42,7 @@ export interface Hotel {
   online_valor_extra_cafe?: number
   online_valor_extra_garagem?: number
   online_valor_extra_veiculo?: number
+  online_quartos_fotos?: Record<string, string[]>
   mp_access_token?: string | null
   mp_public_key?: string | null
   online_taxa_cancelamento_pct?: number
@@ -139,6 +140,7 @@ export interface OnlineReservation {
   tem_pet: boolean
   tem_cafe: boolean
   tem_garagem: boolean
+  tipo_quarto?: string | null
   checkin_previsto: string
   checkout_previsto: string
   horario_chegada_previsto?: string | null

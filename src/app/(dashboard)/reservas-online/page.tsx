@@ -33,6 +33,7 @@ export default async function ReservasOnlinePage() {
         politica_pagamento: profile.hotel?.politica_pagamento ?? null,
         politica_cancelamento: profile.hotel?.politica_cancelamento ?? null,
       }}
+      quartosFotos={profile.hotel?.online_quartos_fotos ?? {}}
       betaFeatures={profile.hotel?.beta_tester ?? false}
     />
   )

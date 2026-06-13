@@ -17,10 +17,12 @@ import {
   formatCurrency, formatDate, formatTime, diffDays,
   ONLINE_RESERVATION_STATUS_LABEL, ONLINE_RESERVATION_STATUS_COLOR,
   ONLINE_PAYMENT_STATUS_LABEL, ONLINE_PAYMENT_STATUS_COLOR,
+  ROOM_TYPE_OPTIONS, ROOM_TYPE_LABEL,
 } from '@/lib/utils'
-import { Globe, Copy, Check, Car, Users as UsersIcon, PawPrint, Coffee, ParkingSquare, Settings, Save } from 'lucide-react'
+import { Globe, Copy, Check, Car, Users as UsersIcon, PawPrint, Coffee, ParkingSquare, Settings, Save, Images, Upload } from 'lucide-react'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
+import { PhotoCarousel } from '@/components/photo-carousel'
 
 type RoomOption = { id: string; numero: string; nome?: string; diaria: number; status: string }
 type GuestOption = { id: string; nome: string; cpf?: string; telefone?: string }
@@ -44,6 +46,7 @@ interface ReservasOnlineClientProps {
   hotelId: string
   canEditSettings: boolean
   pricing: OnlinePricing
+  quartosFotos: Record<string, string[]>
   betaFeatures: boolean
 }
 
@@ -149,6 +152,94 @@ const PricingSettingsCard = memo(function PricingSettingsCard({
           <Save className="h-4 w-4 mr-2" />
           {saving ? 'Salvando...' : 'Salvar Configurações'}
         </Button>
+      </CardContent>
+    </Card>
+  )
+})
+
+// ─── Card de fotos por tipo de quarto ────────────────────────────────────────
+const RoomPhotosCard = memo(function RoomPhotosCard({
+  hotelId, quartosFotos,
+}: { hotelId: string; quartosFotos: Record<string, string[]> }) {
+  const [fotos, setFotos] = useState<Record<string, string[]>>(quartosFotos)
+  const [uploadingType, setUploadingType] = useState<string | null>(null)
+
+  async function persist(next: Record<string, string[]>) {
+    const supabase = createClient()
+    const { error } = await supabase.from('hotels').update({ online_quartos_fotos: next }).eq('id', hotelId)
+    if (error) { toast.error('Erro ao salvar fotos: ' + error.message); return false }
+    return true
+  }
+
+  async function handleUpload(tipo: string, files: FileList | null) {
+    if (!files || files.length === 0) return
+    setUploadingType(tipo)
+    const supabase = createClient()
+    const novasUrls: string[] = []
+
+    for (const file of Array.from(files)) {
+      const path = `${hotelId}/${tipo}/${Date.now()}-${file.name}`
+      const { error } = await supabase.storage.from('room-photos').upload(path, file)
+      if (error) { toast.error(`Erro ao enviar ${file.name}: ${error.message}`); continue }
+      const { data } = supabase.storage.from('room-photos').getPublicUrl(path)
+      novasUrls.push(data.publicUrl)
+    }
+
+    if (novasUrls.length > 0) {
+      const next = { ...fotos, [tipo]: [...(fotos[tipo] ?? []), ...novasUrls] }
+      if (await persist(next)) {
+        setFotos(next)
+        toast.success('Fotos enviadas')
+      }
+    }
+    setUploadingType(null)
+  }
+
+  async function handleRemove(tipo: string, index: number) {
+    const next = { ...fotos, [tipo]: (fotos[tipo] ?? []).filter((_, i) => i !== index) }
+    if (await persist(next)) setFotos(next)
+  }
+
+  return (
+    <Card className="border-0 shadow-sm">
+      <CardHeader className="pb-3">
+        <div className="flex items-center gap-2">
+          <div className="p-1.5 bg-blue-50 rounded-lg">
+            <Images className="h-4 w-4 text-blue-600" />
+          </div>
+          <div>
+            <CardTitle className="text-base">Fotos dos Tipos de Quarto</CardTitle>
+            <CardDescription className="text-xs mt-0.5">
+              Anexe fotos para cada tipo de quarto exibido no link de reserva online
+            </CardDescription>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {ROOM_TYPE_OPTIONS.map(({ value, label }) => (
+          <div key={value} className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label className="text-sm font-medium">{label}</Label>
+              <label className="inline-flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700 cursor-pointer">
+                <Upload className="h-3.5 w-3.5" />
+                {uploadingType === value ? 'Enviando...' : 'Adicionar fotos'}
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  disabled={uploadingType === value}
+                  onChange={(e) => { handleUpload(value, e.target.files); e.target.value = '' }}
+                />
+              </label>
+            </div>
+            <PhotoCarousel
+              photos={fotos[value] ?? []}
+              emptyLabel={`Nenhuma foto de quarto ${label}`}
+              onRemove={(i) => handleRemove(value, i)}
+            />
+          </div>
+        ))}
       </CardContent>
     </Card>
   )
@@ -275,7 +366,7 @@ const AprovarDialog = memo(function AprovarDialog({
         <div className="space-y-4">
           <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-sm space-y-1">
             <p><strong>{reservation.nome}</strong> • {reservation.telefone}</p>
-            <p>{formatDate(reservation.checkin_previsto)} → {formatDate(reservation.checkout_previsto)} ({nights} noite(s))</p>
+            <p>{formatDate(reservation.checkin_previsto)} → {formatDate(reservation.checkout_previsto)} ({nights} noite(s)){reservation.tipo_quarto ? ` • ${ROOM_TYPE_LABEL[reservation.tipo_quarto] ?? reservation.tipo_quarto}` : ''}</p>
             <p>{reservation.quantidade_pessoas} pessoa(s){reservation.tem_veiculo ? ` • ${reservation.quantidade_veiculos ?? 1} veículo(s)` : ''}{reservation.tem_pet ? ' • com pet' : ''}{reservation.tem_cafe ? ' • café da manhã' : ''}{reservation.tem_garagem ? ' • garagem' : ''}</p>
           </div>
 
@@ -350,6 +441,7 @@ const ReservasTable = memo(function ReservasTable({ reservations, onAprovar, onR
             <TableHead>Contato</TableHead>
             <TableHead>Check-in</TableHead>
             <TableHead>Check-out</TableHead>
+            <TableHead>Tipo de Quarto</TableHead>
             <TableHead>Pessoas / Veículos</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Pagamento</TableHead>
@@ -374,6 +466,7 @@ const ReservasTable = memo(function ReservasTable({ reservations, onAprovar, onR
                 )}
               </TableCell>
               <TableCell>{formatDate(r.checkout_previsto)}</TableCell>
+              <TableCell>{r.tipo_quarto ? (ROOM_TYPE_LABEL[r.tipo_quarto] ?? r.tipo_quarto) : '—'}</TableCell>
               <TableCell>
                 <span className="inline-flex items-center gap-1"><UsersIcon className="h-3.5 w-3.5" /> {r.quantidade_pessoas}</span>
                 {r.tem_veiculo && (
@@ -434,7 +527,7 @@ const ReservasTable = memo(function ReservasTable({ reservations, onAprovar, onR
 })
 
 // ─── Componente principal ─────────────────────────────────────────────────────
-export function ReservasOnlineClient({ onlineReservations: initial, rooms, guests, hotelId, canEditSettings, pricing, betaFeatures }: ReservasOnlineClientProps) {
+export function ReservasOnlineClient({ onlineReservations: initial, rooms, guests, hotelId, canEditSettings, pricing, quartosFotos, betaFeatures }: ReservasOnlineClientProps) {
   const [reservations, setReservations] = useState(initial)
   const [aprovando, setAprovando] = useState<OnlineReservation | null>(null)
   const [copied, setCopied] = useState(false)
@@ -506,6 +599,7 @@ export function ReservasOnlineClient({ onlineReservations: initial, rooms, guest
       </div>
 
       {canEditSettings && <PricingSettingsCard hotelId={hotelId} pricing={pricing} betaFeatures={betaFeatures} />}
+      {canEditSettings && <RoomPhotosCard hotelId={hotelId} quartosFotos={quartosFotos} />}
 
       <ReservasTable
         reservations={reservations}

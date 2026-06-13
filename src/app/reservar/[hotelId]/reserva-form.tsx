@@ -9,7 +9,10 @@ import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
 import { CheckCircle2 } from 'lucide-react'
 import { toast } from 'sonner'
-import { formatCurrency, diffDays } from '@/lib/utils'
+import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
+import { SelectDisplay } from '@/components/ui/select-display'
+import { PhotoCarousel } from '@/components/photo-carousel'
+import { formatCurrency, diffDays, ROOM_TYPE_OPTIONS } from '@/lib/utils'
 import { PaymentBrick } from './payment-brick'
 
 interface OnlinePricing {
@@ -32,11 +35,13 @@ interface ReservaFormProps {
   pricing: OnlinePricing
   policies: ReservaPolicies
   mpPublicKey: string | null
+  quartosFotos: Record<string, string[]>
   betaFeatures: boolean
 }
 
 const emptyForm = {
   nome: '', cpf: '', rg: '', telefone: '', email: '',
+  tipo_quarto: '',
   quantidade_pessoas: 1, tem_veiculo: false, quantidade_veiculos: 1, tem_pet: false,
   tem_cafe: false, tem_garagem: false,
   checkin_previsto: '', checkout_previsto: '', horario_chegada_previsto: '',
@@ -46,7 +51,7 @@ const emptyForm = {
 const hasPolicies = (policies: ReservaPolicies) =>
   !!(policies.politica_agendamento || policies.politica_pagamento || policies.politica_cancelamento)
 
-export function ReservaForm({ hotelId, hotelNome, pricing, policies, mpPublicKey, betaFeatures }: ReservaFormProps) {
+export function ReservaForm({ hotelId, hotelNome, pricing, policies, mpPublicKey, quartosFotos, betaFeatures }: ReservaFormProps) {
   const [form, setForm] = useState(emptyForm)
   const [aceitePoliticas, setAceitePoliticas] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -105,6 +110,7 @@ export function ReservaForm({ hotelId, hotelNome, pricing, policies, mpPublicKey
       tem_pet: form.tem_pet,
       tem_cafe: form.tem_cafe,
       tem_garagem: form.tem_garagem,
+      tipo_quarto: form.tipo_quarto || null,
       checkin_previsto: form.checkin_previsto,
       checkout_previsto: form.checkout_previsto,
       horario_chegada_previsto: form.horario_chegada_previsto || null,
@@ -215,6 +221,24 @@ export function ReservaForm({ hotelId, hotelNome, pricing, policies, mpPublicKey
           <Label>E-mail</Label>
           <Input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
         </div>
+      </div>
+
+      <div className="space-y-1">
+        <Label>Tipo de quarto</Label>
+        <Select
+          value={form.tipo_quarto}
+          onValueChange={v => setForm(f => ({ ...f, tipo_quarto: v ?? '' }))}
+        >
+          <SelectTrigger>
+            <SelectDisplay value={form.tipo_quarto} options={[...ROOM_TYPE_OPTIONS]} placeholder="Sem preferência" />
+          </SelectTrigger>
+          <SelectContent>
+            {ROOM_TYPE_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        {form.tipo_quarto && (quartosFotos[form.tipo_quarto]?.length ?? 0) > 0 && (
+          <PhotoCarousel photos={quartosFotos[form.tipo_quarto] ?? []} className="mt-2" />
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-3">
