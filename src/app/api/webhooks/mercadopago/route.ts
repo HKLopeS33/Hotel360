@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
 
   const { data: reservation } = await supabase
     .from('online_reservations')
-    .select('id, hotel_id')
+    .select('id, hotel_id, status')
     .eq('mp_payment_id', String(paymentId))
     .maybeSingle()
 
@@ -62,7 +62,10 @@ export async function POST(request: NextRequest) {
 
     await supabase
       .from('online_reservations')
-      .update({ payment_status: paymentStatus })
+      .update({
+        payment_status: paymentStatus,
+        ...(paymentStatus === 'pago' && reservation.status === 'pendente' ? { status: 'aprovada' } : {}),
+      })
       .eq('id', reservation.id)
   } catch {
     // Notificação será reenviada pelo Mercado Pago em caso de falha

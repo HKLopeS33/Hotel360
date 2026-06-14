@@ -4,8 +4,8 @@
 -- silenciosamente ignoradas pelo RLS para usuários "admin".
 CREATE OR REPLACE FUNCTION is_hotel_admin()
 RETURNS BOOLEAN AS $$
-  SELECT role = 'admin' FROM profiles WHERE id = auth.uid();
-$$ LANGUAGE SQL SECURITY DEFINER STABLE;
+  SELECT role = 'admin' FROM public.profiles WHERE id = auth.uid();
+$$ LANGUAGE SQL SECURITY DEFINER STABLE SET search_path = public;
 
 DROP POLICY IF EXISTS "hotels_admin_update" ON hotels;
 CREATE POLICY "hotels_admin_update" ON hotels FOR UPDATE

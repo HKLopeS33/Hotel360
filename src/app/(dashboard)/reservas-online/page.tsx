@@ -10,7 +10,7 @@ export default async function ReservasOnlinePage() {
   const supabase = await createClient()
 
   const [{ data: onlineReservations }, { data: rooms }, { data: guests }] = await Promise.all([
-    supabase.from('online_reservations').select('*').eq('hotel_id', profile.hotel_id!).order('created_at', { ascending: false }),
+    supabase.from('online_reservations').select('*').eq('hotel_id', profile.hotel_id!).not('payment_status', 'in', '(pendente,falhou)').order('created_at', { ascending: false }),
     supabase.from('rooms').select('id,numero,nome,diaria,status').eq('hotel_id', profile.hotel_id!).order('numero'),
     supabase.from('guests').select('id,nome,cpf,telefone').eq('hotel_id', profile.hotel_id!).order('nome'),
   ])

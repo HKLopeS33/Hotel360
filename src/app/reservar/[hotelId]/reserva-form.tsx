@@ -101,6 +101,8 @@ export function ReservaForm({ hotelId, hotelNome, pricing, policies, mpPublicKey
     setSaving(true)
     const supabase = createClient()
 
+    const pagamentoObrigatorio = !!mpPublicKey && !!estimativa && estimativa > 0
+
     const { data, error } = await supabase.from('online_reservations').insert({
       hotel_id: hotelId,
       nome: form.nome,
@@ -122,6 +124,7 @@ export function ReservaForm({ hotelId, hotelNome, pricing, policies, mpPublicKey
       status: 'pendente',
       valor_total: estimativa,
       aceite_politicas: hasPolicies(policies) ? aceitePoliticas : true,
+      payment_status: pagamentoObrigatorio ? 'pendente' : 'nao_exigido',
     }).select('id').single()
 
     if (error) {
@@ -130,7 +133,7 @@ export function ReservaForm({ hotelId, hotelNome, pricing, policies, mpPublicKey
       return
     }
 
-    if (mpPublicKey && estimativa && estimativa > 0) {
+    if (pagamentoObrigatorio) {
       setReservationId(data.id)
     } else {
       setDone(true)
@@ -143,6 +146,52 @@ export function ReservaForm({ hotelId, hotelNome, pricing, policies, mpPublicKey
     const pendente = paymentStatus?.status === 'pending' || paymentStatus?.status === 'in_process'
     const recusado = paymentStatus?.status === 'rejected' || paymentStatus?.status === 'error'
 
+    if (reservationId) {
+      // Pagamento prévio obrigatório: a solicitação só é enviada ao hotel quando o pagamento é confirmado
+      if (recusado) {
+        return (
+          <div className="bg-white rounded-xl border border-slate-200 p-8 text-center">
+            <h2 className="text-lg font-bold text-slate-900">Pagamento não confirmado</h2>
+            <p className="text-slate-500 mt-2">
+              Não foi possível confirmar o pagamento. Sua solicitação de reserva para o {hotelNome} ainda não foi enviada.
+            </p>
+            <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg p-3 mt-4">
+              Verifique os dados do pagamento e tente novamente recarregando a página.
+            </p>
+          </div>
+        )
+      }
+
+      if (pendente) {
+        return (
+          <div className="bg-white rounded-xl border border-slate-200 p-8 text-center">
+            <h2 className="text-lg font-bold text-slate-900">Pagamento em processamento</h2>
+            <p className="text-slate-500 mt-2">
+              Assim que o pagamento para o {hotelNome} for confirmado, sua solicitação de reserva será enviada automaticamente ao hotel.
+            </p>
+            <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3 mt-4">
+              Pagamento em processamento. Você será avisado assim que for confirmado.
+            </p>
+          </div>
+        )
+      }
+
+      return (
+        <div className="bg-white rounded-xl border border-slate-200 p-8 text-center">
+          <CheckCircle2 className="h-12 w-12 text-green-600 mx-auto mb-3" />
+          <h2 className="text-lg font-bold text-slate-900">Solicitação enviada!</h2>
+          <p className="text-slate-500 mt-2">
+            Sua solicitação de reserva para o {hotelNome} foi enviada com sucesso. Em breve nossa equipe entrará em contato para confirmar.
+          </p>
+          {aprovado && (
+            <p className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg p-3 mt-4">
+              Pagamento aprovado! Sua reserva já está paga.
+            </p>
+          )}
+        </div>
+      )
+    }
+
     return (
       <div className="bg-white rounded-xl border border-slate-200 p-8 text-center">
         <CheckCircle2 className="h-12 w-12 text-green-600 mx-auto mb-3" />
@@ -150,21 +199,6 @@ export function ReservaForm({ hotelId, hotelNome, pricing, policies, mpPublicKey
         <p className="text-slate-500 mt-2">
           Sua solicitação de reserva para o {hotelNome} foi enviada com sucesso. Em breve nossa equipe entrará em contato para confirmar.
         </p>
-        {aprovado && (
-          <p className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg p-3 mt-4">
-            Pagamento aprovado! Sua reserva já está paga.
-          </p>
-        )}
-        {pendente && (
-          <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3 mt-4">
-            Pagamento em processamento. Você será avisado assim que for confirmado.
-          </p>
-        )}
-        {recusado && (
-          <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg p-3 mt-4">
-            Não foi possível confirmar o pagamento agora. O hotel entrará em contato para combinar o pagamento.
-          </p>
-        )}
       </div>
     )
   }

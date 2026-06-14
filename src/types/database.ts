@@ -12,7 +12,7 @@ export type MaintenancePriority = 'baixa' | 'media' | 'alta' | 'urgente'
 export type PaymentMethod = 'dinheiro' | 'cartao_credito' | 'cartao_debito' | 'pix' | 'transferencia'
 export type PaymentStatus = 'pendente' | 'pago' | 'cancelado' | 'estornado'
 export type OnlineReservationStatus = 'pendente' | 'aprovada' | 'recusada'
-export type OnlinePaymentStatus = 'pendente' | 'pago' | 'reembolsado' | 'falhou'
+export type OnlinePaymentStatus = 'pendente' | 'pago' | 'reembolsado' | 'falhou' | 'nao_exigido'
 
 export interface Plan {
   id: string
@@ -158,6 +158,7 @@ export interface OnlineReservation {
   payment_status: OnlinePaymentStatus
   forma_pagamento?: string | null
   mp_payment_id?: string | null
+  reservation_id?: string | null
   created_at: string
 }
 

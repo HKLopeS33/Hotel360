@@ -35,6 +35,8 @@ export function PerfilClient({ email, isAdmin, hotelId, mpAccessToken, mpPublicK
     mp_public_key: mpPublicKey,
   })
   const [loadingMp, setLoadingMp] = useState(false)
+  const [testingMp, setTestingMp] = useState(false)
+  const [mpStatus, setMpStatus] = useState<{ ok: boolean; message: string } | null>(null)
 
   async function handleAlterarSenha(e: React.FormEvent) {
     e.preventDefault()
@@ -87,6 +89,7 @@ export function PerfilClient({ email, isAdmin, hotelId, mpAccessToken, mpPublicK
 
   async function handleSalvarMp() {
     setLoadingMp(true)
+    setMpStatus(null)
     const supabase = createClient()
     const { error } = await supabase.from('hotels').update({
       mp_access_token: mpForm.mp_access_token || null,
@@ -95,10 +98,33 @@ export function PerfilClient({ email, isAdmin, hotelId, mpAccessToken, mpPublicK
 
     if (error) {
       toast.error('Erro ao salvar credenciais: ' + error.message)
-    } else {
-      toast.success('Credenciais salvas')
+      setLoadingMp(false)
+      return
     }
+
+    toast.success('Credenciais salvas')
     setLoadingMp(false)
+
+    if (mpForm.mp_access_token) {
+      await handleTestarMp()
+    }
+  }
+
+  async function handleTestarMp() {
+    setTestingMp(true)
+    setMpStatus(null)
+    try {
+      const res = await fetch('/api/mercadopago/test-connection', { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok) {
+        setMpStatus({ ok: false, message: data.error ?? 'Erro ao conectar com o Mercado Pago' })
+      } else {
+        setMpStatus({ ok: true, message: `Conectado como ${data.nickname ?? data.email ?? 'conta Mercado Pago'}` })
+      }
+    } catch {
+      setMpStatus({ ok: false, message: 'Erro ao conectar com o Mercado Pago' })
+    }
+    setTestingMp(false)
   }
 
   return (
@@ -261,13 +287,25 @@ export function PerfilClient({ email, isAdmin, hotelId, mpAccessToken, mpPublicK
                 onChange={e => setMpForm(f => ({ ...f, mp_public_key: e.target.value }))}
               />
             </div>
-            <Button onClick={handleSalvarMp} disabled={loadingMp} className="bg-blue-600 hover:bg-blue-700">
-              {loadingMp ? (
-                <span className="flex items-center gap-2"><span className="animate-spin">⏳</span> Salvando...</span>
-              ) : (
-                <span className="flex items-center gap-2"><Save className="h-4 w-4" /> Salvar Credenciais</span>
-              )}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button onClick={handleSalvarMp} disabled={loadingMp} className="bg-blue-600 hover:bg-blue-700">
+                {loadingMp ? (
+                  <span className="flex items-center gap-2"><span className="animate-spin">⏳</span> Salvando...</span>
+                ) : (
+                  <span className="flex items-center gap-2"><Save className="h-4 w-4" /> Salvar Credenciais</span>
+                )}
+              </Button>
+              <Button type="button" variant="outline" onClick={handleTestarMp} disabled={testingMp || !mpForm.mp_access_token}>
+                {testingMp ? (
+                  <span className="flex items-center gap-2"><span className="animate-spin">⏳</span> Testando...</span>
+                ) : 'Testar Conexão'}
+              </Button>
+            </div>
+            {mpStatus && (
+              <p className={`text-sm rounded-lg p-2 ${mpStatus.ok ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+                {mpStatus.ok ? '✓ ' : '✗ '}{mpStatus.message}
+              </p>
+            )}
           </CardContent>
         </Card>
       )}

@@ -79,6 +79,7 @@ export const ONLINE_PAYMENT_STATUS_LABEL: Record<string, string> = {
   pago: 'Pago',
   reembolsado: 'Reembolsado',
   falhou: 'Falhou',
+  nao_exigido: 'Sem pagamento online',
 }
 
 export const ONLINE_PAYMENT_STATUS_COLOR: Record<string, string> = {
@@ -86,6 +87,7 @@ export const ONLINE_PAYMENT_STATUS_COLOR: Record<string, string> = {
   pago: 'text-green-600 bg-green-50 border-green-200',
   reembolsado: 'text-slate-600 bg-slate-50 border-slate-200',
   falhou: 'text-red-600 bg-red-50 border-red-200',
+  nao_exigido: 'text-slate-600 bg-slate-50 border-slate-200',
 }
 
 export const ROOM_TYPE_OPTIONS = [

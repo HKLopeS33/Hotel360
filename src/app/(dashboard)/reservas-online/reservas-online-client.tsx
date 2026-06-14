@@ -554,7 +554,7 @@ const AprovarDialog = memo(function AprovarDialog({
       guestId = newGuest.id
     }
 
-    const { error: reservationError } = await supabase
+    const { data: newReservation, error: reservationError } = await supabase
       .from('reservations')
       .insert({
         hotel_id: hotelId,
@@ -569,6 +569,8 @@ const AprovarDialog = memo(function AprovarDialog({
         observacoes: reservation.observacoes || undefined,
         status: 'criada',
       })
+      .select('id')
+      .single()
 
     if (reservationError) {
       toast.error('Erro ao criar reserva: ' + reservationError.message)
@@ -577,9 +579,9 @@ const AprovarDialog = memo(function AprovarDialog({
     }
 
     await supabase.from('rooms').update({ status: 'reservado' }).eq('id', roomId)
-    await supabase.from('online_reservations').update({ status: 'aprovada' }).eq('id', reservation.id)
+    await supabase.from('online_reservations').update({ status: 'aprovada', reservation_id: newReservation.id }).eq('id', reservation.id)
 
-    toast.success('Solicitação aprovada e reserva criada!')
+    toast.success(reservation.status === 'aprovada' ? 'Quarto atribuído e reserva criada!' : 'Solicitação aprovada e reserva criada!')
     onApproved(reservation.id)
     resetAndClose()
     setSaving(false)
@@ -591,10 +593,16 @@ const AprovarDialog = memo(function AprovarDialog({
     <Dialog open={!!reservation} onOpenChange={o => { if (!o) resetAndClose() }}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Aprovar Solicitação</DialogTitle>
+          <DialogTitle>{reservation.status === 'aprovada' ? 'Atribuir Quarto' : 'Aprovar Solicitação'}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
+          {reservation.status === 'aprovada' && (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-800">
+              Pagamento confirmado. Selecione o quarto para concluir a reserva.
+            </div>
+          )}
+
           <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-sm space-y-1">
             <p><strong>{reservation.nome}</strong> • {reservation.telefone}</p>
             <p>{formatDate(reservation.checkin_previsto)} → {formatDate(reservation.checkout_previsto)} ({nights} noite(s)){reservation.tipo_quarto ? ` • ${ROOM_TYPE_LABEL[reservation.tipo_quarto] ?? reservation.tipo_quarto}` : ''}</p>
@@ -636,7 +644,7 @@ const AprovarDialog = memo(function AprovarDialog({
         <DialogFooter>
           <Button variant="outline" onClick={resetAndClose}>Cancelar</Button>
           <Button onClick={handleApprove} disabled={saving} className="bg-blue-600 hover:bg-blue-700">
-            {saving ? 'Aprovando...' : 'Aprovar e Criar Reserva'}
+            {saving ? 'Salvando...' : reservation.status === 'aprovada' ? 'Confirmar Quarto' : 'Aprovar e Criar Reserva'}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -737,7 +745,12 @@ const ReservasTable = memo(function ReservasTable({ reservations, onAprovar, onR
                     </Button>
                   </div>
                 )}
-                {r.status === 'aprovada' && r.payment_status === 'pago' && (
+                {r.status === 'aprovada' && r.payment_status === 'pago' && !r.reservation_id && (
+                  <Button variant="outline" size="sm" className="text-xs h-7 px-2 text-green-700 border-green-300 hover:bg-green-50" onClick={() => onAprovar(r)}>
+                    Atribuir Quarto
+                  </Button>
+                )}
+                {r.status === 'aprovada' && r.payment_status === 'pago' && r.reservation_id && (
                   <Button
                     variant="outline"
                     size="sm"

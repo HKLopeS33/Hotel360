@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
 
   const { data: reservation } = await supabase
     .from('online_reservations')
-    .select('id, hotel_id, valor_total, nome, email')
+    .select('id, hotel_id, valor_total, nome, email, status')
     .eq('id', reservationId)
     .eq('hotel_id', hotelId)
     .single()
@@ -83,6 +83,7 @@ export async function POST(request: NextRequest) {
         payment_status: paymentStatus,
         mp_payment_id: String(result.id),
         forma_pagamento: formData.payment_method_id,
+        ...(paymentStatus === 'pago' && reservation.status === 'pendente' ? { status: 'aprovada' } : {}),
       })
       .eq('id', reservationId)
 
