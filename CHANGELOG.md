@@ -25,6 +25,32 @@ O versionamento segue [SemVer](https://semver.org/lang/pt-BR/): `MAJOR.MINOR.PAT
 
 ---
 
+## [1.1.0] - 2026-06-14
+
+### Adicionado
+- Reserva online: seleção de tipo de quarto, valores por tipo e carrossel
+  de fotos na página de reserva, com personalização (branding/templates).
+- Pagamento online via Mercado Pago: vinculação da confirmação de pagamento
+  à criação automática da reserva no hotel, com atribuição de quarto
+  ("Atribuir Quarto") quando o pagamento é aprovado.
+- Exibição de QR Code Pix na página de reserva online, com confirmação
+  automática do pagamento por polling.
+- Botão "Testar Conexão" em Meu Perfil para validar as credenciais do
+  Mercado Pago configuradas pelo hotel.
+- Fluxo de "pagamento obrigatório antes do envio": a reserva só é enviada
+  ao hotel após a confirmação do pagamento (status `nao_exigido` quando o
+  hotel não usa pagamento online).
+- Recepcionista agora também tem acesso às páginas de Limpeza e Manutenção.
+
+### Corrigido
+- Pagamento Pix: tela não fechava mais prematuramente antes da exibição
+  do QR Code/código copia-e-cola.
+- Webhook do Mercado Pago: adicionado `notification_url` na criação do
+  pagamento e fallback de consulta direta à API quando o webhook não
+  confirma o pagamento.
+- RLS: administradores do hotel agora conseguem atualizar os dados do
+  próprio hotel.
+
 ## [1.0.4] - 2026-06-10
 
 ### Corrigido
