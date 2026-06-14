@@ -26,7 +26,8 @@
     "publish": {
       "provider": "github",
       "owner": "HKLopeS33",
-      "repo": "Hotel360"
+      "repo": "Hotel360",
+      "releaseType": "release"
     },
     "files": [
       "main.js",
