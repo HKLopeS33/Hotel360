@@ -58,6 +58,8 @@ export async function POST(request: NextRequest) {
   const client = new MercadoPagoConfig({ accessToken: hotel.mp_access_token })
   const payment = new Payment(client)
 
+  const origin = new URL(request.url).origin
+
   try {
     const result = await payment.create({
       body: {
@@ -71,6 +73,7 @@ export async function POST(request: NextRequest) {
           email: formData.payer?.email ?? reservation.email ?? undefined,
           identification: formData.payer?.identification,
         },
+        notification_url: `${origin}/api/webhooks/mercadopago`,
       },
       requestOptions: { idempotencyKey: `${reservationId}-${Date.now()}` },
     })
