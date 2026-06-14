@@ -44,8 +44,8 @@ const navItems: NavItem[] = [
   { href: '/reservas-online', label: 'Reservas Online', icon: Globe, roles: RECEPTION, betaOnly: true },
   { href: '/checkin',    label: 'Check-in',   icon: LogIn,           roles: RECEPTION },
   { href: '/checkout',   label: 'Check-out',  icon: LogOut,          roles: RECEPTION },
-  { href: '/limpeza',    label: 'Limpeza',    icon: Sparkles,        roles: ['master', 'admin', 'camareira'] },
-  { href: '/manutencao', label: 'Manutenção', icon: Wrench,          roles: ['master', 'admin', 'manutencao'] },
+  { href: '/limpeza',    label: 'Limpeza',    icon: Sparkles,        roles: ['master', 'admin', 'camareira', 'recepcionista'] },
+  { href: '/manutencao', label: 'Manutenção', icon: Wrench,          roles: ['master', 'admin', 'manutencao', 'recepcionista'] },
   { href: '/financeiro', label: 'Financeiro', icon: DollarSign,      roles: MANAGEMENT },
 ]
 

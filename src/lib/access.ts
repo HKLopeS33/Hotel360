@@ -5,8 +5,8 @@ import { Profile } from '@/types/database'
 export const ACCESS = {
   dashboard:  ['master', 'admin'],
   financeiro: ['master', 'admin'],
-  limpeza:    ['master', 'admin', 'camareira'],
-  manutencao: ['master', 'admin', 'manutencao'],
+  limpeza:    ['master', 'admin', 'camareira', 'recepcionista'],
+  manutencao: ['master', 'admin', 'manutencao', 'recepcionista'],
   quartos:    ['master', 'admin', 'recepcionista'],
   hospedes:   ['master', 'admin', 'recepcionista'],
   reservas:   ['master', 'admin', 'recepcionista'],
