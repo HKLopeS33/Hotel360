@@ -9,6 +9,7 @@ const PUBLIC_PATHS = [
   '/suporte',
   '/api/webhooks/mercadopago',
   '/api/mercadopago/process-payment',
+  '/api/mercadopago/payment-status',
 ]
 
 export async function proxy(request: NextRequest) {

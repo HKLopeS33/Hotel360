@@ -91,6 +91,7 @@ export async function POST(request: NextRequest) {
       status: result.status,
       status_detail: result.status_detail,
       id: result.id,
+      point_of_interaction: result.point_of_interaction,
     })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Erro ao processar pagamento'

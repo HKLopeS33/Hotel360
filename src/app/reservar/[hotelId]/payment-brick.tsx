@@ -4,13 +4,19 @@ import { useEffect, useState } from 'react'
 import { initMercadoPago, Payment } from '@mercadopago/sdk-react'
 import { Loader2 } from 'lucide-react'
 
+interface PixData {
+  qr_code?: string
+  qr_code_base64?: string
+  ticket_url?: string
+}
+
 interface PaymentBrickProps {
   publicKey: string
   amount: number
   payerEmail?: string
   reservationId: string
   hotelId: string
-  onResult: (result: { status: string; status_detail?: string; error?: string }) => void
+  onResult: (result: { status: string; status_detail?: string; error?: string; pix?: PixData }) => void
 }
 
 export function PaymentBrick({ publicKey, amount, payerEmail, reservationId, hotelId, onResult }: PaymentBrickProps) {
@@ -57,7 +63,11 @@ export function PaymentBrick({ publicKey, amount, payerEmail, reservationId, hot
               onResult({ status: 'error', error: data.error })
               return
             }
-            onResult({ status: data.status, status_detail: data.status_detail })
+            onResult({
+              status: data.status,
+              status_detail: data.status_detail,
+              pix: data.point_of_interaction?.transaction_data,
+            })
           } catch {
             setError('Erro ao processar pagamento')
             onResult({ status: 'error', error: 'Erro ao processar pagamento' })

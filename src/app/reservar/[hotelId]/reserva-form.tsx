@@ -1,13 +1,13 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
-import { CheckCircle2 } from 'lucide-react'
+import { CheckCircle2, Copy } from 'lucide-react'
 import { toast } from 'sonner'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import { SelectDisplay } from '@/components/ui/select-display'
@@ -59,6 +59,27 @@ export function ReservaForm({ hotelId, hotelNome, pricing, policies, mpPublicKey
   const [done, setDone] = useState(false)
   const [reservationId, setReservationId] = useState<string | null>(null)
   const [paymentStatus, setPaymentStatus] = useState<{ status: string; status_detail?: string } | null>(null)
+  const [pixData, setPixData] = useState<{ qr_code?: string; qr_code_base64?: string } | null>(null)
+
+  // Enquanto aguarda o pagamento Pix, consulta periodicamente se já foi confirmado
+  useEffect(() => {
+    if (!reservationId || !pixData) return
+
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/mercadopago/payment-status?reservationId=${reservationId}`)
+        const data = await res.json()
+        if (data.payment_status === 'pago') {
+          setPaymentStatus({ status: 'approved' })
+          setDone(true)
+        }
+      } catch {
+        // tenta novamente na próxima verificação
+      }
+    }, 5000)
+
+    return () => clearInterval(interval)
+  }, [reservationId, pixData])
 
   const nights = useMemo(
     () => form.checkin_previsto && form.checkout_previsto ? diffDays(form.checkin_previsto, form.checkout_previsto) : 0,
@@ -143,7 +164,6 @@ export function ReservaForm({ hotelId, hotelNome, pricing, policies, mpPublicKey
 
   if (done) {
     const aprovado = paymentStatus?.status === 'approved'
-    const pendente = paymentStatus?.status === 'pending' || paymentStatus?.status === 'in_process'
     const recusado = paymentStatus?.status === 'rejected' || paymentStatus?.status === 'error'
 
     if (reservationId) {
@@ -157,20 +177,6 @@ export function ReservaForm({ hotelId, hotelNome, pricing, policies, mpPublicKey
             </p>
             <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg p-3 mt-4">
               Verifique os dados do pagamento e tente novamente recarregando a página.
-            </p>
-          </div>
-        )
-      }
-
-      if (pendente) {
-        return (
-          <div className="bg-white rounded-xl border border-slate-200 p-8 text-center">
-            <h2 className="text-lg font-bold text-slate-900">Pagamento em processamento</h2>
-            <p className="text-slate-500 mt-2">
-              Assim que o pagamento para o {hotelNome} for confirmado, sua solicitação de reserva será enviada automaticamente ao hotel.
-            </p>
-            <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3 mt-4">
-              Pagamento em processamento. Você será avisado assim que for confirmado.
             </p>
           </div>
         )
@@ -204,6 +210,48 @@ export function ReservaForm({ hotelId, hotelNome, pricing, policies, mpPublicKey
   }
 
   if (reservationId && mpPublicKey) {
+    if (pixData) {
+      return (
+        <div className="bg-white rounded-xl border border-slate-200 p-6 space-y-4 text-center">
+          <div>
+            <h2 className="text-lg font-bold text-slate-900">Pague com Pix</h2>
+            <p className="text-sm text-slate-500">
+              Total: <strong>{formatCurrency(estimativa ?? 0)}</strong>
+            </p>
+          </div>
+          {pixData.qr_code_base64 && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={`data:image/png;base64,${pixData.qr_code_base64}`}
+              alt="QR Code Pix"
+              className="mx-auto w-56 h-56 border border-slate-200 rounded-lg"
+            />
+          )}
+          {pixData.qr_code && (
+            <div className="space-y-1">
+              <Label>Ou copie o código Pix</Label>
+              <div className="flex gap-2">
+                <Input readOnly value={pixData.qr_code} className="text-xs" />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    navigator.clipboard.writeText(pixData.qr_code!)
+                    toast.success('Código Pix copiado!')
+                  }}
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
+          <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3">
+            Escaneie o QR Code ou cole o código no app do seu banco. Assim que o pagamento for confirmado, sua solicitação será enviada automaticamente ao {hotelNome} — você pode aguardar nesta página ou fechar e acompanhar pelo e-mail.
+          </p>
+        </div>
+      )
+    }
+
     return (
       <div className="bg-white rounded-xl border border-slate-200 p-6 space-y-4">
         <div>
@@ -220,9 +268,20 @@ export function ReservaForm({ hotelId, hotelNome, pricing, policies, mpPublicKey
           hotelId={hotelId}
           onResult={(result) => {
             setPaymentStatus(result)
-            setDone(true)
+            if (result.pix?.qr_code_base64 || result.pix?.qr_code) {
+              setPixData(result.pix)
+              return
+            }
+            if (result.status === 'approved' || result.status === 'rejected' || result.status === 'error') {
+              setDone(true)
+            }
           }}
         />
+        {paymentStatus && (paymentStatus.status === 'pending' || paymentStatus.status === 'in_process') && (
+          <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3">
+            Finalize o pagamento exibido acima. Assim que o pagamento for confirmado, sua solicitação será enviada automaticamente ao {hotelNome} — você pode fechar esta página.
+          </p>
+        )}
       </div>
     )
   }
