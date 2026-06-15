@@ -485,7 +485,7 @@ interface AprovarDialogProps {
   pricing: OnlinePricing
   betaFeatures: boolean
   onClose: () => void
-  onApproved: (id: string) => void
+  onApproved: (id: string, reservationId: string) => void
 }
 
 const AprovarDialog = memo(function AprovarDialog({
@@ -582,7 +582,7 @@ const AprovarDialog = memo(function AprovarDialog({
     await supabase.from('online_reservations').update({ status: 'aprovada', reservation_id: newReservation.id }).eq('id', reservation.id)
 
     toast.success(reservation.status === 'aprovada' ? 'Quarto atribuído e reserva criada!' : 'Solicitação aprovada e reserva criada!')
-    onApproved(reservation.id)
+    onApproved(reservation.id, newReservation.id)
     resetAndClose()
     setSaving(false)
   }
@@ -788,8 +788,8 @@ export function ReservasOnlineClient({ onlineReservations: initial, rooms, guest
     setTimeout(() => setCopied(false), 2000)
   }, [hotelId])
 
-  const handleApproved = useCallback((id: string) => {
-    setReservations(prev => prev.map(r => r.id === id ? { ...r, status: 'aprovada' } : r))
+  const handleApproved = useCallback((id: string, reservationId: string) => {
+    setReservations(prev => prev.map(r => r.id === id ? { ...r, status: 'aprovada', reservation_id: reservationId } : r))
     setAprovando(null)
     router.refresh()
   }, [router])
