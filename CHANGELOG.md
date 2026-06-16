@@ -25,6 +25,16 @@ O versionamento segue [SemVer](https://semver.org/lang/pt-BR/): `MAJOR.MINOR.PAT
 
 ---
 
+## [1.1.1] - 2026-06-15
+
+### Corrigido
+- Link de reserva online gerado no app Desktop agora aponta para o site
+  de produção (`https://hotel360app.netlify.app`) em vez do servidor
+  local (`http://127.0.0.1:3000`).
+- Atribuição de quarto: estado local atualiza imediatamente após ação,
+  sem precisar recarregar a página (F5).
+- Navegação entre páginas com feedback visual instantâneo (spinner).
+
 ## [1.1.0] - 2026-06-14
 
 ### Adicionado
