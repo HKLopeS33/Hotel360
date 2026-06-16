@@ -800,7 +800,8 @@ export function ReservasOnlineClient({ onlineReservations: initial, rooms, guest
   const pendentesCount = useMemo(() => reservations.filter(r => r.status === 'pendente').length, [reservations])
 
   const handleCopyLink = useCallback(async () => {
-    const link = `${window.location.origin}/reservar/${hotelId}`
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? window.location.origin
+    const link = `${siteUrl}/reservar/${hotelId}`
     await navigator.clipboard.writeText(link)
     setCopied(true)
     toast.success('Link copiado!')
