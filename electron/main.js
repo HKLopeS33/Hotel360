@@ -9,6 +9,18 @@ let mainWindow = null
 let nextServer = null
 const PORT = 3000
 
+// Encerra o servidor Next.js, destrói todas as janelas e instala a atualização.
+// Chamado tanto pelo dialog automático quanto pelo botão manual no Perfil.
+function quitAndInstallUpdate() {
+  if (nextServer) {
+    nextServer.kill()
+    nextServer = null
+  }
+  app.removeAllListeners('window-all-closed')
+  BrowserWindow.getAllWindows().forEach(w => w.destroy())
+  autoUpdater.quitAndInstall(false, true)
+}
+
 // ─── Garante uma única instância do app ───────────────────────────────────────
 // Sem isso, cada novo lançamento (ex.: atalho duplicado, auto-start, ou o
 // próprio instalador reabrindo o app) cria uma nova instância, que por sua
@@ -155,7 +167,7 @@ function setupAutoUpdater() {
       message: `Nova versão (${info.version}) baixada com sucesso.`,
       detail: 'Reinicie o aplicativo para aplicar a atualização.',
     }).then(({ response }) => {
-      if (response === 0) autoUpdater.quitAndInstall()
+      if (response === 0) quitAndInstallUpdate()
     })
   })
 
@@ -189,7 +201,7 @@ ipcMain.handle('app:check-for-updates', async () => {
 })
 
 ipcMain.handle('app:quit-and-install', () => {
-  autoUpdater.quitAndInstall()
+  quitAndInstallUpdate()
 })
 
 // ─── Ciclo de vida ────────────────────────────────────────────────────────────

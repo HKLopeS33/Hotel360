@@ -25,6 +25,13 @@ O versionamento segue [SemVer](https://semver.org/lang/pt-BR/): `MAJOR.MINOR.PAT
 
 ---
 
+## [1.1.2] - 2026-06-15
+
+### Corrigido
+- Atualização automática do Desktop: o servidor interno (Next.js) agora é
+  encerrado antes do instalador rodar, eliminando o erro "Não é possível
+  fechar o Hotel360" durante a atualização.
+
 ## [1.1.1] - 2026-06-15
 
 ### Corrigido
