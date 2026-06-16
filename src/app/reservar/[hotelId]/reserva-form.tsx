@@ -43,7 +43,7 @@ interface ReservaFormProps {
 const emptyForm = {
   nome: '', cpf: '', rg: '', telefone: '', email: '',
   tipo_quarto: '',
-  quantidade_pessoas: 1, tem_veiculo: false, quantidade_veiculos: 1, tem_pet: false,
+  quantidade_pessoas: 1, quantidade_quartos: 1, tem_veiculo: false, quantidade_veiculos: 1, tem_pet: false,
   tem_cafe: false, tem_garagem: false,
   checkin_previsto: '', checkout_previsto: '', horario_chegada_previsto: '',
   observacoes: '',
@@ -95,7 +95,7 @@ export function ReservaForm({ hotelId, hotelNome, pricing, policies, mpPublicKey
   const diariaBase = (form.tipo_quarto && quartosPrecos[form.tipo_quarto] != null)
     ? quartosPrecos[form.tipo_quarto]
     : pricing.online_valor_diaria
-  const valorDiaria = (diariaBase ?? 0) + extrasDiaria
+  const valorDiaria = (diariaBase ?? 0) * form.quantidade_quartos + extrasDiaria
   const garagem = form.tem_garagem ? pricing.online_valor_extra_garagem : 0
 
   const estimativa = useMemo(() => {
@@ -132,6 +132,7 @@ export function ReservaForm({ hotelId, hotelNome, pricing, policies, mpPublicKey
       telefone: form.telefone,
       email: form.email || null,
       quantidade_pessoas: form.quantidade_pessoas,
+      quantidade_quartos: form.quantidade_quartos,
       tem_veiculo: form.tem_veiculo,
       quantidade_veiculos: form.tem_veiculo ? form.quantidade_veiculos : null,
       tem_pet: form.tem_pet,
@@ -356,9 +357,22 @@ export function ReservaForm({ hotelId, hotelNome, pricing, policies, mpPublicKey
         </div>
         <div className="space-y-1">
           <Label>Quantidade de pessoas</Label>
-          <Input type="number" min={1} value={form.quantidade_pessoas} onChange={e => setForm(f => ({ ...f, quantidade_pessoas: +e.target.value }))} />
+          <Input type="number" min={1} value={form.quantidade_pessoas} onChange={e => setForm(f => ({ ...f, quantidade_pessoas: +e.target.value, quantidade_quartos: Math.max(f.quantidade_quartos, 1) }))} />
         </div>
       </div>
+
+      {form.quantidade_pessoas >= 2 && (
+        <div className="space-y-1">
+          <Label>Quantos quartos deseja?{diariaBase != null && form.quantidade_quartos > 1 && ` (${form.quantidade_quartos}x ${formatCurrency(diariaBase)}/quarto/diária)`}</Label>
+          <Input
+            type="number"
+            min={1}
+            max={10}
+            value={form.quantidade_quartos}
+            onChange={e => setForm(f => ({ ...f, quantidade_quartos: Math.max(1, +e.target.value) }))}
+          />
+        </div>
+      )}
 
       <div className="space-y-2">
         <div className="flex items-center gap-2">

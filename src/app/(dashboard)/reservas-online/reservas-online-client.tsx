@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, memo, useCallback } from 'react'
+import { useState, useMemo, memo, useCallback, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { OnlineReservation } from '@/types/database'
 import { Button } from '@/components/ui/button'
@@ -491,15 +491,21 @@ interface AprovarDialogProps {
 const AprovarDialog = memo(function AprovarDialog({
   reservation, rooms, guests, hotelId, pricing, betaFeatures, onClose, onApproved,
 }: AprovarDialogProps) {
-  const [roomId, setRoomId] = useState('')
+  const qtdQuartos = reservation?.quantidade_quartos ?? 1
+  const [roomIds, setRoomIds] = useState<string[]>([''])
   const [saving, setSaving] = useState(false)
+
+  // Sincroniza o array de roomIds com a quantidade de quartos da reserva
+  useEffect(() => {
+    setRoomIds(Array.from({ length: qtdQuartos }, () => ''))
+  }, [qtdQuartos])
 
   const roomOptions = useMemo(
     () => rooms.map(r => ({ value: r.id, label: `Quarto ${r.numero}${r.nome ? ` • ${r.nome}` : ''} • ${formatCurrency(r.diaria)}/noite${r.status !== 'livre' ? ` • ${r.status}` : ''}` })),
     [rooms]
   )
 
-  const selectedRoom = useMemo(() => rooms.find(r => r.id === roomId), [rooms, roomId])
+  const selectedRooms = useMemo(() => roomIds.map(id => rooms.find(r => r.id === id)), [rooms, roomIds])
   const nights = reservation ? diffDays(reservation.checkin_previsto, reservation.checkout_previsto) : 0
 
   const extrasDiaria =
@@ -510,18 +516,22 @@ const AprovarDialog = memo(function AprovarDialog({
     (reservation?.tem_veiculo
       ? (pricing.online_valor_extra_veiculo ?? 0) * (reservation?.quantidade_veiculos ?? 1)
       : 0)
-  const valorDiaria = (selectedRoom?.diaria ?? 0) + extrasDiaria
   const garagemExtra = reservation?.tem_garagem ? (pricing.online_valor_extra_garagem ?? 0) : 0
-  const total = valorDiaria * nights + garagemExtra
+
+  // Total = soma das diárias de cada quarto + extras (extras não multiplicam por quarto)
+  const total = selectedRooms.reduce((acc, r) => acc + (r?.diaria ?? 0), 0) * nights + extrasDiaria * nights + garagemExtra
 
   function resetAndClose() {
-    setRoomId('')
+    setRoomIds(Array.from({ length: qtdQuartos }, () => ''))
     onClose()
   }
 
   async function handleApprove() {
     if (!reservation) return
-    if (!roomId) { toast.error('Selecione um quarto'); return }
+    const allSelected = roomIds.every(id => !!id)
+    if (!allSelected) { toast.error(`Selecione ${qtdQuartos > 1 ? 'todos os quartos' : 'um quarto'}`); return }
+    const uniqueRooms = new Set(roomIds)
+    if (uniqueRooms.size !== roomIds.length) { toast.error('Selecione quartos diferentes para cada vaga'); return }
     if (nights <= 0) { toast.error('Datas inválidas'); return }
 
     setSaving(true)
@@ -554,35 +564,42 @@ const AprovarDialog = memo(function AprovarDialog({
       guestId = newGuest.id
     }
 
-    const { data: newReservation, error: reservationError } = await supabase
-      .from('reservations')
-      .insert({
+    // Cria uma reserva por quarto
+    const reservationInserts = roomIds.map((rid, idx) => {
+      const room = rooms.find(r => r.id === rid)
+      const valorDiariaQuarto = (room?.diaria ?? 0) + (idx === 0 ? extrasDiaria : 0)
+      const totalQuarto = valorDiariaQuarto * nights + (idx === 0 ? garagemExtra : 0)
+      return {
         hotel_id: hotelId,
-        room_id: roomId,
-        guest_id: guestId,
+        room_id: rid,
+        guest_id: guestId!,
         checkin_previsto: reservation.checkin_previsto,
         checkout_previsto: reservation.checkout_previsto,
         checkin_hora_prevista: reservation.horario_chegada_previsto || null,
         quantidade_pessoas: reservation.quantidade_pessoas,
-        valor_diaria: valorDiaria,
-        valor_total: total,
+        valor_diaria: valorDiariaQuarto,
+        valor_total: totalQuarto,
         observacoes: reservation.observacoes || undefined,
-        status: 'criada',
-      })
-      .select('id')
-      .single()
+        status: 'criada' as const,
+      }
+    })
 
-    if (reservationError) {
-      toast.error('Erro ao criar reserva: ' + reservationError.message)
+    const { data: createdReservations, error: reservationError } = await supabase
+      .from('reservations')
+      .insert(reservationInserts)
+      .select('id')
+
+    if (reservationError || !createdReservations?.length) {
+      toast.error('Erro ao criar reserva: ' + reservationError?.message)
       setSaving(false)
       return
     }
 
-    await supabase.from('rooms').update({ status: 'reservado' }).eq('id', roomId)
-    await supabase.from('online_reservations').update({ status: 'aprovada', reservation_id: newReservation.id }).eq('id', reservation.id)
+    await supabase.from('rooms').update({ status: 'reservado' }).in('id', roomIds)
+    await supabase.from('online_reservations').update({ status: 'aprovada', reservation_id: createdReservations[0].id }).eq('id', reservation.id)
 
-    toast.success(reservation.status === 'aprovada' ? 'Quarto atribuído e reserva criada!' : 'Solicitação aprovada e reserva criada!')
-    onApproved(reservation.id, newReservation.id)
+    toast.success(reservation.status === 'aprovada' ? 'Quarto(s) atribuído(s) e reserva criada!' : 'Solicitação aprovada e reserva criada!')
+    onApproved(reservation.id, createdReservations[0].id)
     resetAndClose()
     setSaving(false)
   }
@@ -606,36 +623,38 @@ const AprovarDialog = memo(function AprovarDialog({
           <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-sm space-y-1">
             <p><strong>{reservation.nome}</strong> • {reservation.telefone}</p>
             <p>{formatDate(reservation.checkin_previsto)} → {formatDate(reservation.checkout_previsto)} ({nights} noite(s)){reservation.tipo_quarto ? ` • ${ROOM_TYPE_LABEL[reservation.tipo_quarto] ?? reservation.tipo_quarto}` : ''}</p>
-            <p>{reservation.quantidade_pessoas} pessoa(s){reservation.tem_veiculo ? ` • ${reservation.quantidade_veiculos ?? 1} veículo(s)` : ''}{reservation.tem_pet ? ' • com pet' : ''}{reservation.tem_cafe ? ' • café da manhã' : ''}{reservation.tem_garagem ? ' • garagem' : ''}</p>
+            <p>{reservation.quantidade_pessoas} pessoa(s){(reservation.quantidade_quartos ?? 1) > 1 ? ` • ${reservation.quantidade_quartos} quartos` : ''}{reservation.tem_veiculo ? ` • ${reservation.quantidade_veiculos ?? 1} veículo(s)` : ''}{reservation.tem_pet ? ' • com pet' : ''}{reservation.tem_cafe ? ' • café da manhã' : ''}{reservation.tem_garagem ? ' • garagem' : ''}</p>
           </div>
 
-          <div className="space-y-1">
-            <Label>Quarto *</Label>
-            <Select value={roomId} onValueChange={v => setRoomId(v ?? '')}>
-              <SelectTrigger>
-                <SelectDisplay value={roomId} options={roomOptions} placeholder="Selecione o quarto" />
-              </SelectTrigger>
-              <SelectContent>
-                {rooms.map(r => (
-                  <SelectItem key={r.id} value={r.id}>
-                    Quarto {r.numero}{r.nome ? ` • ${r.nome}` : ''} • {formatCurrency(r.diaria)}/noite{r.status !== 'livre' ? ` • ${r.status}` : ''}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {Array.from({ length: qtdQuartos }).map((_, idx) => (
+            <div key={idx} className="space-y-1">
+              <Label>{qtdQuartos > 1 ? `Quarto ${idx + 1} *` : 'Quarto *'}</Label>
+              <Select value={roomIds[idx] ?? ''} onValueChange={v => setRoomIds(prev => { const next = [...prev]; next[idx] = v ?? ''; return next })}>
+                <SelectTrigger>
+                  <SelectDisplay value={roomIds[idx] ?? ''} options={roomOptions} placeholder="Selecione o quarto" />
+                </SelectTrigger>
+                <SelectContent>
+                  {rooms.map(r => (
+                    <SelectItem key={r.id} value={r.id} disabled={roomIds.some((id, i) => i !== idx && id === r.id)}>
+                      Quarto {r.numero}{r.nome ? ` • ${r.nome}` : ''} • {formatCurrency(r.diaria)}/noite{r.status !== 'livre' ? ` • ${r.status}` : ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          ))}
 
-          {nights > 0 && selectedRoom && (
+          {nights > 0 && selectedRooms.some(r => r) && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm space-y-1">
-              <p className="text-blue-800">
-                Diária: {formatCurrency(selectedRoom.diaria)}
-                {extrasDiaria > 0 && <> + {formatCurrency(extrasDiaria)} (extras) = {formatCurrency(valorDiaria)}</>}
-              </p>
-              {garagemExtra > 0 && (
-                <p className="text-blue-800">Garagem: {formatCurrency(garagemExtra)}</p>
-              )}
+              {selectedRooms.filter(Boolean).map((r, idx) => r && (
+                <p key={idx} className="text-blue-800">
+                  {qtdQuartos > 1 ? `Quarto ${idx + 1}: ` : 'Diária: '}{formatCurrency(r.diaria)}/noite
+                </p>
+              ))}
+              {extrasDiaria > 0 && <p className="text-blue-800">Extras: {formatCurrency(extrasDiaria)}/noite</p>}
+              {garagemExtra > 0 && <p className="text-blue-800">Garagem: {formatCurrency(garagemExtra)}</p>}
               <p className="text-blue-800 font-medium">
-                {nights} noite(s) × {formatCurrency(valorDiaria)}{garagemExtra > 0 ? ` + ${formatCurrency(garagemExtra)}` : ''} = <strong>{formatCurrency(total)}</strong>
+                Total ({nights} noite(s)): <strong>{formatCurrency(total)}</strong>
               </p>
             </div>
           )}

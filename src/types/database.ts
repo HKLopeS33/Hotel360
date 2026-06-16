@@ -142,6 +142,7 @@ export interface OnlineReservation {
   telefone: string
   email?: string | null
   quantidade_pessoas: number
+  quantidade_quartos?: number | null
   tem_veiculo: boolean
   quantidade_veiculos?: number | null
   tem_pet: boolean
