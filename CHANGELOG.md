@@ -25,6 +25,13 @@ O versionamento segue [SemVer](https://semver.org/lang/pt-BR/): `MAJOR.MINOR.PAT
 
 ---
 
+## [1.1.3] - 2026-06-15
+
+### Corrigido
+- Instalador agora roda em modo silencioso (`isSilent`), eliminando
+  definitivamente o erro "Não é possível fechar o Hotel360" durante
+  atualizações automáticas. O app reabre automaticamente após instalar.
+
 ## [1.1.2] - 2026-06-15
 
 ### Corrigido

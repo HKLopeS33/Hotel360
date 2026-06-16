@@ -13,12 +13,14 @@ const PORT = 3000
 // Chamado tanto pelo dialog automático quanto pelo botão manual no Perfil.
 function quitAndInstallUpdate() {
   if (nextServer) {
-    nextServer.kill()
+    nextServer.kill('SIGKILL')
     nextServer = null
   }
   app.removeAllListeners('window-all-closed')
   BrowserWindow.getAllWindows().forEach(w => w.destroy())
-  autoUpdater.quitAndInstall(false, true)
+  // isSilent=true: NSIS roda sem UI e sem tentar fechar processos interativamente
+  // isForceRunAfter=true: reabre o app após instalar
+  autoUpdater.quitAndInstall(true, true)
 }
 
 // ─── Garante uma única instância do app ───────────────────────────────────────
