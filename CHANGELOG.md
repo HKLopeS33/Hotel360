@@ -25,6 +25,15 @@ O versionamento segue [SemVer](https://semver.org/lang/pt-BR/): `MAJOR.MINOR.PAT
 
 ---
 
+## [1.1.4] - 2026-06-16
+
+### Corrigido
+- Reservas: ao avançar o status pela tela de Reservas (Check-in,
+  Check-out, Cancelar), o status do quarto agora é sincronizado
+  automaticamente — antes ficava preso como "reservado" mesmo após
+  cancelamento ou checkout. Checkout também cria a tarefa de limpeza
+  pendente automaticamente.
+
 ## [1.1.3] - 2026-06-15
 
 ### Corrigido
