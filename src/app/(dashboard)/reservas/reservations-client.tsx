@@ -616,12 +616,30 @@ export function ReservationsClient({ reservations: initialReservations, rooms, g
 
   const handleUpdateStatus = useCallback(async (id: string, newStatus: ReservationStatus) => {
     const supabase = createClient()
+    const reservation = reservations.find(r => r.id === id)
     const { error } = await supabase.from('reservations').update({ status: newStatus }).eq('id', id)
     if (error) { toast.error('Erro ao atualizar status'); return }
+
+    // Mantém o status do quarto sincronizado com o status da reserva
+    if (reservation?.room_id) {
+      if (newStatus === 'checkin') {
+        await supabase.from('rooms').update({ status: 'ocupado' }).eq('id', reservation.room_id)
+      } else if (newStatus === 'checkout') {
+        await supabase.from('rooms').update({ status: 'limpeza' }).eq('id', reservation.room_id)
+        await supabase.from('cleaning_tasks').insert({
+          hotel_id: reservation.hotel_id,
+          room_id: reservation.room_id,
+          status: 'aguardando',
+        })
+      } else if (newStatus === 'cancelada') {
+        await supabase.from('rooms').update({ status: 'livre' }).eq('id', reservation.room_id)
+      }
+    }
+
     setReservations(prev => prev.map(r => r.id === id ? { ...r, status: newStatus } : r))
     toast.success(`Status: ${RESERVATION_STATUS_LABEL[newStatus]}`)
     router.refresh()
-  }, [router])
+  }, [router, reservations])
 
   return (
     <div className="space-y-6">
